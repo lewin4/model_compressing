@@ -48,7 +48,7 @@ model:
         k_means_type: src
 
   use_permutations: True
-  sls_iterations: 10_000
+  sls_iterations: 10_000     #test
 
   permutations:   # parent-children relationships for permutation optimization
     -
