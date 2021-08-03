@@ -65,7 +65,7 @@ def main():
     model = get_uncompressed_model(model_config["arch"], pretrained=True).to(DEVICE)    #从网站上下载别人提供的预训练模型
     #C:\Users\LiuYan\.cache\torch\hub\checkpoints，下载到这个位置了
 
-    #哈哈2
+    #哈哈3
 
     if "permutations" in model_config and model_config.get("use_permutations", False):
         permute_model(
