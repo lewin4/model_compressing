@@ -2,7 +2,7 @@ dataloader:
   # imagenet_path: <your_imagenet_path_here>
   imagenet_path: D:\Code\data\cifar-100
   num_workers: 8
-  batch_size: 128
+  batch_size: 256
   train_shuffle: True
   validation_shuffle: False
 
