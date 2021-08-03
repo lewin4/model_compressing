@@ -76,13 +76,10 @@ def main():
             layer_specs=compression_config["layer_specs"],
             sls_iterations=model_config["sls_iterations"],
         )
-    # print("排列后以及压缩前的model ID:", id(model))
-    # print(model.named_parameters().__next__())
 
     uncompressed_model_size_bits = compute_model_nbits(model)
     model = compress_model(model, **compression_config).to(DEVICE)
-    # print("压缩后的model ID:", id(model))
-    # print(model.named_parameters().__next__())
+
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits, summary_writer)
 
