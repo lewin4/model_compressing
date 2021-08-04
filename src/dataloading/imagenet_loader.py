@@ -62,11 +62,11 @@ class DogCatDataset(data.Dataset):
         np.random.seed(85)
         np.random.shuffle(imgs)         #打乱imgs的顺序
 
-        '''
+
         #减少图片数量，小范围测试
-        len_imgs = len(imgs)
-        imgs = imgs[:int(0.1 * len_imgs)]
-        '''
+        # len_imgs = len(imgs)
+        # imgs = imgs[:int(0.1 * len_imgs)]
+
         len_imgs = len(imgs)
 
         if suffix == "test":
