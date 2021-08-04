@@ -81,9 +81,6 @@ class DogCatDataset(data.Dataset):
         else:
             raise ValueError(f"you should give suffix in one of 'test' 'train' 'val',but your commit is {suffix}?")
 
-
-
-
         # -----------------------------------------------------------------------------------------
         # 因为在猫狗数据集中，只有训练集和测试集，但是我们还需要验证集，因此从原始训练集中分离出30%的数据
         # 用作验证集。
