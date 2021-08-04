@@ -47,7 +47,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def main():
     setup_pretty_logging()
     verbose = initialize_horovod()
-
+    print(verbose)
     start_timestamp = datetime.now()
 
     # specify config file to use in case user does not pass in a --config argument
@@ -129,7 +129,7 @@ def main():
 
     training_start_timestamp = datetime.now()
     for epoch in range(1, n_epochs + 1):
-        train_one_epoch(epoch, train_sampler, train_data_loader, model, trainer, training_logger, verbose,DEVICE)
+        train_one_epoch(epoch, train_sampler, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
 
         # Save the current state of the model after every epoch
         save_state_dict_compressed(
