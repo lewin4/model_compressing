@@ -1,6 +1,7 @@
 dataloader:
-  # imagenet_path: <your_imagenet_path_here>
-  imagenet_path: D:\Code\data\cifar-100
+#  imagenet_path: <your_imagenet_path_here>
+#  imagenet_path: D:\Code\data\cifar-100
+  imagenet_path: D:\Code\learning\cats_vs_dogs\train
   num_workers: 8
   batch_size: 256
   train_shuffle: True
