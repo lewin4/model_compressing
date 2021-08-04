@@ -60,6 +60,7 @@ def load_config(calling_path: str, default_config_path: Optional[str] = None) ->
     parser.add_argument("--config", default=default_config_path)
     args, unknown_args = parser.parse_known_args()
 
+    # 此处用‘utf-8’编码方式解码
     with open(os.path.join(calling_path, args.config),'r', encoding='utf-8') as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
