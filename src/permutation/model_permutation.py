@@ -169,7 +169,7 @@ def _permute_group(
 
     # Find the first child in the list that is optimizable
     for child_name, (child, sub_size, child_permutation_specs) in children_dict.items():
-        if _is_optimizable(child, sub_size):
+        if _is_optimizable(child, sub_size):            #只有fc和1*1卷积可以被优化
             child_weight = child.weight.detach()
             prev_cov_det = get_cov_det(child_weight.reshape(-1, sub_size))
             logging.info(f"Optimizing permutation for {child_name}")
