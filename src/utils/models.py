@@ -12,6 +12,8 @@ from typing import Optional
 import torch
 import torchvision
 from torchvision.models.resnet import model_urls
+import sys
+sys.path.append(r"D:\Code\U-Net")
 
 
 def get_resnet18(pretrained: bool = False) -> torch.nn.Module:
@@ -56,12 +58,18 @@ def get_mask_rcnn(pretrained: bool = False) -> torch.nn.Module:
     return model
 
 
-def get_uncompressed_model(arch: str, pretrained: Optional[bool] = True) -> torch.nn.Module:
+def get_custom_model(path: str):
+    model = torch.load(path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    return model
+
+
+def get_uncompressed_model(arch: str, pretrained: Optional[bool] = True, path=None) -> torch.nn.Module:
     """Gets an uncompressed network
 
     Parameters:
         arch: Model architecture name
         pretrained: Whether to get the pretrained model
+        path: the path of custom model
     Returns:
         model: Uncompressed network
     """
@@ -73,6 +81,8 @@ def get_uncompressed_model(arch: str, pretrained: Optional[bool] = True) -> torc
         model = get_resnet50ssl()
     elif arch == "maskrcnn":
         model = get_mask_rcnn(pretrained)
+    elif arch == "custom" and (path is not None):
+        model = get_custom_model(path)
     else:
         raise ValueError(f"Unknown model arch: {arch}")
 

@@ -13,6 +13,7 @@ import math
 import os
 from datetime import datetime
 import torch
+import sys
 
 from .compression.model_compression import compress_model
 from .dataloading.imagenet_loader import load_imagenet_train, load_imagenet_val
@@ -52,7 +53,7 @@ def main():
 
     # specify config file to use in case user does not pass in a --config argument
     file_path = os.path.dirname(__file__)
-    default_config = os.path.join(file_path, "../config/train_resnet18.yaml")
+    default_config = os.path.join(file_path, "../config/train_unet.yaml")
     config = load_config(file_path, default_config_path=default_config)
     summary_writer = None
     if (HAVE_HOROVOD and hvd.rank == 0) or (not HAVE_HOROVOD):
@@ -62,8 +63,7 @@ def main():
     # Get the model, optimize its permutations, and compress it
     model_config = config["model"]
     compression_config = model_config["compression_parameters"]
-    model = get_uncompressed_model(model_config["arch"], pretrained=True).to(DEVICE)    #从网站上下载别人提供的预训练模型
-    #C:\Users\LiuYan\.cache\torch\hub\checkpoints，下载到这个位置了
+    model = get_uncompressed_model(model_config["arch"], pretrained=True, path=model_config["model_path"]).to(DEVICE)
 
     #哈哈3
 

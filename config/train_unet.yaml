@@ -25,7 +25,8 @@ output_path: ../output
 
 # model architecture
 model:
-  arch: resnet18
+  arch: custom
+  model_path: D:\Code\U-Net\output\checkpoints\unet_model.pth
 
   compression_parameters:
     ignored_modules:
