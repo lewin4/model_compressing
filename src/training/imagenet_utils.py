@@ -10,7 +10,7 @@
 from typing import Tuple
 
 import torch
-
+import torch.nn as nn
 from .training import ModelTrainer
 from .training_types import FinalSummary, TQDMState
 from .validating import ModelValidator
@@ -110,7 +110,7 @@ class ImagenetValidator(ModelValidator):
         # inputs = data[0].cuda(non_blocking=True)
         # targets = data[1].cuda(non_blocking=True)
         inputs = data[0].to(device,non_blocking=True)
-        targets = data[1].to(device,non_blocking=True)
+        targets = data[1].float().unsqueeze(1).to(device,non_blocking=True)
 
         outputs = self._model(inputs)
         loss = self._criterion(outputs, targets)
@@ -159,6 +159,27 @@ class ImagenetTrainer(ModelTrainer):
         )
 
 
+# Dice损失函数
+class DiceLoss(nn.Module):
+    def __init__(self):
+        super(DiceLoss, self).__init__()
+        self.epsilon = 1e-5
+
+    def forward(self, predict, target):
+        assert predict.size() == target.size(), "the size of predict and target must be equal."
+        num = predict.size(0)
+
+        pre = torch.sigmoid(predict).view(num, -1)
+        tar = target.view(num, -1)
+
+        intersection = (pre * tar).sum(-1).sum()  # 利用预测值与标签相乘当作交集
+        union = (pre + tar).sum(-1).sum()
+
+        score = 1 - 2 * (intersection + self.epsilon) / (union + self.epsilon)
+        return score
+
+
 def get_imagenet_criterion():
     """Gets the typical training loss for Imagenet classification"""
-    return torch.nn.CrossEntropyLoss()
+    # return torch.nn.CrossEntropyLoss()
+    return DiceLoss()

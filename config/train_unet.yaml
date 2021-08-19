@@ -1,15 +1,21 @@
 dataloader:
-  imagenet_path: <your_imagenet_path_here>
+#  imagenet_path: <your_imagenet_path_here>
 #  imagenet_path: D:\Code\data\cifar-100
 #  imagenet_path: E:\LY\data\cat_vs_dog\train
+  img_dir: D:\Code\data\sewage\small_dataset\small_img
+  mask_dir: D:\Code\data\sewage\small_dataset\small_label
   num_workers: 8
-  batch_size: 256
+  batch_size: 6
   train_shuffle: True
   validation_shuffle: False
+  pin_memory: True
+  img_shape:
+    - 768
+    - 1024
 
 # training hyperparams
 epochs: 9
-learning_rate: 0.001
+learning_rate: 0.00005
 momentum: 0.9
 weight_decay: 0.0001 # 1e-4
 

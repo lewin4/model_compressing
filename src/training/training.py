@@ -41,7 +41,7 @@ class ModelTrainer(AbstractDataHandler):
         # inputs = data[0].cuda(non_blocking=True)
         # targets = data[1].cuda(non_blocking=True)
         inputs = data[0].to(device, non_blocking=True)
-        targets = data[1].to(device, non_blocking=True)
+        targets = data[1].float().unsqueeze(1).to(device,non_blocking=True)
 
         self.optimizer.zero_grad()
         outputs, loss = self.pass_to_model(inputs, targets)
