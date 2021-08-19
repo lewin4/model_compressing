@@ -239,8 +239,8 @@ class ImagenetValidator(ModelValidator):
         return TQDMState({
             "loss": f'{state["loss"]:.2f}',
             "accuracy": f'{state["acc"]:.2f}%',
-            "iou-0,1": f'{state["iou"].item(0)}, {state["iou"].item(1)}',
-            "miou": f'{state["miou"]}',
+            "iou-0,1": f'{state["iou"].item(0):.4f}, {state["iou"].item(1):.4f}',
+            "miou": f'{state["miou"]:.4f}',
         })
 
     def get_final_summary(self):
