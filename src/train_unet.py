@@ -117,7 +117,7 @@ def main():
     last_acc = -math.inf
     stat = model.state_dict()
     if not config.get("skip_initial_validation", False):
-        last_acc = validate_one_epoch(0, val_loader, model, validator, validation_logger, verbose, DEVICE)
+        last_acc = validate_one_epoch(1, val_loader, model, validator, validation_logger, verbose, DEVICE)
         best_acc = last_acc
         best_acc_epoch = 0
         print("best_acc: ",best_acc,last_acc)
