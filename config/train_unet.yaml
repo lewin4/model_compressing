@@ -54,71 +54,56 @@ model:
 
   permutations:   # parent-children relationships for permutation optimization
     -
-      - parents: [layer1.0.conv1, layer1.0.bn1]
-      - children: [layer1.0.conv2]
+      - parents: [encoder.enc_blocks.0.conv1]
+      - children: [encoder.enc_blocks.0.conv2]
     -
-      - parents: [layer1.1.conv1, layer1.1.bn1]
-      - children: [layer1.1.conv2]
+      - parents: [encoder.enc_blocks.0.conv2, decoder.upconvs.3]
+      - children: [encoder.enc_blocks.1.conv1, decoder.dec_blocks.3.conv1]
     -
-      - parents: [layer2.0.conv1, layer2.0.bn1]
-      - children: [layer2.0.conv2]
+      - parents: [encoder.enc_blocks.1.conv1]
+      - children: [encoder.enc_blocks.1.conv2]
     -
-      - parents: [layer2.1.conv1, layer2.1.bn1]
-      - children: [layer2.1.conv2]
+      - parents: [encoder.enc_blocks.1.conv2, decoder.upconvs.2]
+      - children: [encoder.enc_blocks.2.conv1, decoder.dec_blocks.2.conv1]
     -
-      - parents: [layer3.0.conv1, layer3.0.bn1]
-      - children: [layer3.0.conv2]
+      - parents: [encoder.enc_blocks.2.conv1]
+      - children: [encoder.enc_blocks.2.conv2]
     -
-      - parents: [layer3.1.conv1, layer3.1.bn1]
-      - children: [layer3.1.conv2]
+      - parents: [encoder.enc_blocks.2.conv2, decoder.upconvs.1]
+      - children: [encoder.enc_blocks.3.conv1, decoder.dec_blocks.1.conv1]
     -
-      - parents: [layer4.0.conv1, layer4.0.bn1]
-      - children: [layer4.0.conv2]
+      - parents: [encoder.enc_blocks.3.conv1]
+      - children: [encoder.enc_blocks.3.conv2]
     -
-      - parents: [layer4.1.conv1, layer4.1.bn1]
-      - children: [layer4.1.conv2]
+      - parents: [encoder.enc_blocks.3.conv2, decoder.upconvs.0]
+      - children: [encoder.enc_blocks.4.conv1, decoder.dec_blocks.0.conv1]
     -
-      - parents: [
-          conv1, bn1,
-          layer1.0.conv2, layer1.0.bn2,
-          layer1.1.conv2, layer1.1.bn2,
-        ]
-      - children: [
-          layer1.0.conv1,
-          layer1.1.conv1,
-          layer2.0.conv1,
-          layer2.0.downsample.0,
-        ]
+      - parents: [encoder.enc_blocks.4.conv1]
+      - children: [encoder.enc_blocks.4.conv2]
     -
-      - parents: [
-          layer2.0.downsample.0, layer2.0.downsample.1,
-          layer2.0.conv2, layer2.0.bn2,
-          layer2.1.conv2, layer2.1.bn2,
-        ]
-      - children: [
-          layer2.1.conv1,
-          layer3.0.conv1,
-          layer3.0.downsample.0,
-        ]
+      - parents: [encoder.enc_blocks.4.conv2]
+      - children: [decoder.upconvs.0]
     -
-      - parents: [
-          layer3.0.downsample.0, layer3.0.downsample.1,
-          layer3.0.conv2, layer3.0.bn2,
-          layer3.1.conv2, layer3.1.bn2,
-        ]
-      - children: [
-          layer3.1.conv1,
-          layer4.0.conv1,
-          layer4.0.downsample.0,
-        ]
+      - parents: [decoder.dec_blocks.0.conv1]
+      - children: [decoder.dec_blocks.0.conv2]
     -
-      - parents: [
-          layer4.0.downsample.0, layer4.0.downsample.1,
-          layer4.0.conv2, layer4.0.bn2,
-          layer4.1.conv2, layer4.1.bn2,
-        ]
-      - children: [
-          layer4.1.conv1,
-          fc,
-        ]
-
+      - parents: [decoder.dec_blocks.0.conv2]
+      - children: [decoder.upconvs.1]
+    -
+      - parents: [decoder.dec_blocks.1.conv1]
+      - children: [decoder.dec_blocks.1.conv2]
+    -
+      - parents: [decoder.dec_blocks.1.conv2]
+      - children: [decoder.upconvs.2]
+    -
+      - parents: [decoder.dec_blocks.2.conv1]
+      - children: [decoder.dec_blocks.2.conv2]
+    -
+      - parents: [decoder.dec_blocks.2.conv2]
+      - children: [decoder.upconvs.3]
+    -
+      - parents: [decoder.dec_blocks.3.conv1]
+      - children: [decoder.dec_blocks.3.conv2]
+    -
+      - parents: [decoder.dec_blocks.3.conv2]
+      - children: [head]

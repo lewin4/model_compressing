@@ -12,8 +12,6 @@ from typing import Optional
 import torch
 import torchvision
 from torchvision.models.resnet import model_urls
-import sys
-sys.path.append(r"D:\Code\U-Net")
 
 
 def get_resnet18(pretrained: bool = False) -> torch.nn.Module:
