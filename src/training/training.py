@@ -18,7 +18,7 @@ from ..utils.logging import log_to_summary_writer
 from .AbstractDataHandler import AbstractDataHandler
 from .AbstractDataLogger import AbstractDataLogger
 from .lr_scheduler import LR_Scheduler
-from .training_types import FinalSummary, IntermediateSummary, TQDMState
+from .training_types import FinalSummary, IntermediateSummary, TQDMState, Summary
 
 
 class ModelTrainer(AbstractDataHandler):
@@ -61,10 +61,19 @@ class ModelTrainer(AbstractDataHandler):
         pass
 
     def get_tqdm_state(self) -> TQDMState:
-        return TQDMState(self.latest_state)
+        state = self.latest_state
+        return TQDMState({
+            "loss": f'{state["loss"]:.2f}',
+            "accuracy": f'{state["acc"]:.2f}%',
+            "iou-(0,1)": f'({state["iou"].item(0):.4f},{state["iou"].item(1):.4f})',
+            "miou": f'{state["miou"]:.4f}',
+        })
 
     def get_intermediate_summary(self) -> IntermediateSummary:
-        return IntermediateSummary({"learning_rate": self.optimizer.param_groups[0]["lr"], **self.latest_state})
+        return IntermediateSummary(Summary({
+            "learning_rate": self.optimizer.param_groups[0]["lr"],
+            **self.latest_state
+        }))
 
     def get_final_metric(self) -> float:
         return -math.inf  # unused value
@@ -79,7 +88,7 @@ class TrainingLogger(AbstractDataLogger):
         log_to_summary_writer("Train", idx, summary, self.summary_writer)
 
     def log_final_summary(self, epoch: int, summary: FinalSummary):
-        statement = ", ".join(f"{k}: {v}" for k, v in summary.items())
+        statement = ", ".join(f"{k}: {v:.4f}" for k, v in summary.items())
         print(f'{self.get_desc("Epoch", epoch)}: {statement}')
 
 

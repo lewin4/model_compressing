@@ -239,7 +239,7 @@ class ImagenetValidator(ModelValidator):
         return TQDMState({
             "loss": f'{state["loss"]:.2f}',
             "accuracy": f'{state["acc"]:.2f}%',
-            "iou-0,1": f'{state["iou"].item(0):.4f}, {state["iou"].item(1):.4f}',
+            "iou-(0,1)": f'({state["iou"].item(0):.4f},{state["iou"].item(1):.4f})',
             "miou": f'{state["miou"]:.4f}',
         })
 
@@ -274,7 +274,8 @@ class ImagenetTrainer(ModelTrainer):
     def update_state(self, targets: torch.Tensor, outputs: torch.Tensor, loss: torch.Tensor):
         self.accumulator.accumulate(targets, outputs, loss)
         state = self.accumulator.get_latest_state()
-        self.latest_state = {"loss": state["loss"], "accuracy": state["acc"], "miou": state["miou"]}
+        # self.latest_state = {"loss": state["loss"], "accuracy": state["acc"], "miou": state["miou"]}
+        self.latest_state = state
 
     def get_final_summary(self):
         state = self.accumulator.get_average_state()
