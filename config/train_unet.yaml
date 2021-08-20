@@ -2,10 +2,10 @@ dataloader:
 #  imagenet_path: <your_imagenet_path_here>
 #  imagenet_path: D:\Code\data\cifar-100
 #  imagenet_path: E:\LY\data\cat_vs_dog\train
-  img_dir: D:\Code\data\sewage\small_dataset\small_img
-  mask_dir: D:\Code\data\sewage\small_dataset\small_label
+  img_dir: E:\LY\data\sewage\small_dataset\small_img
+  mask_dir: E:\LY\data\sewage\small_dataset\small_label
   num_workers: 8
-  batch_size: 6
+  batch_size: 4
   train_shuffle: True
   validation_shuffle: False
   pin_memory: True
@@ -14,10 +14,10 @@ dataloader:
     - 1024
 
 # training hyperparams
-epochs: 9
-learning_rate: 0.00005
+epochs: 1
+learning_rate: 0.0001
 momentum: 0.9
-weight_decay: 0.0001 # 1e-4
+weight_decay: 0.00001 # 1e-4
 
 optimizer: adam # must be either sgd or adam
 
@@ -26,13 +26,13 @@ lr_scheduler:
   type: cosine
   min_lr: 1.e-6
 
-skip_initial_validation: False
+skip_initial_validation: True
 output_path: ../output
 
 # model architecture
 model:
   arch: custom
-  model_path: D:\Code\U-Net\output\checkpoints\unet_model.pth
+  model_path: E:\LY\U-Net\output\checkpoints\unet_model.pth
 
   compression_parameters:
     ignored_modules:

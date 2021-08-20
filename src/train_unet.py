@@ -120,8 +120,7 @@ def main():
         last_acc = validate_one_epoch(1, val_loader, model, validator, validation_logger, verbose, DEVICE)
         best_acc = last_acc
         best_acc_epoch = 0
-
-    save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
+        save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
 
     training_start_timestamp = datetime.now()
     for epoch in range(1, n_epochs + 1):

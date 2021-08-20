@@ -109,7 +109,7 @@ class SegmentationMetric(object):
         self.iou += iou
         self.miou += np.nanmean(iou).item()
         self.count += 1
-        self.loss += np.array(loss)
+        self.loss += np.array(loss.item())
         self.acc += acc
 
         self._latest_state = {
@@ -238,9 +238,9 @@ class ImagenetValidator(ModelValidator):
         state = self._accumulator.get_average_state()
         return TQDMState({
             "loss": f'{state["loss"]:.2f}',
-            "accuracy": f'{state["acc"]:.2f}%',
-            "iou-(0,1)": f'({state["iou"].item(0):.4f},{state["iou"].item(1):.4f})',
-            "miou": f'{state["miou"]:.4f}',
+            "accuracy": f'{state["acc"]:.2f}',
+            "iou(0,1)": f'({state["iou"].item(0):.2f},{state["iou"].item(1):.2f})',
+            "miou": f'{state["miou"]:.2f}',
         })
 
     def get_final_summary(self):
@@ -259,7 +259,7 @@ class ImagenetValidator(ModelValidator):
 class ImagenetTrainer(ModelTrainer):
     def __init__(self, model, optimizer, lr_scheduler, criterion):
         super().__init__(model, optimizer, lr_scheduler)
-        self.accumulator = ImagenetAccumulator()
+        self.accumulator = SegmentationMetric(2)
         self.criterion = criterion
 
     def reset(self):
@@ -272,7 +272,7 @@ class ImagenetTrainer(ModelTrainer):
         return outputs, loss
 
     def update_state(self, targets: torch.Tensor, outputs: torch.Tensor, loss: torch.Tensor):
-        self.accumulator.accumulate(targets, outputs, loss)
+        self.accumulator.addBatch(outputs, targets, loss)
         state = self.accumulator.get_latest_state()
         # self.latest_state = {"loss": state["loss"], "accuracy": state["acc"], "miou": state["miou"]}
         self.latest_state = state
@@ -281,8 +281,8 @@ class ImagenetTrainer(ModelTrainer):
         state = self.accumulator.get_average_state()
         return FinalSummary(Summary({"loss": state["loss"],
                                      "accuracy": state["acc"],
-                                     "iou-1": state["iou"].item(0),
-                                     "iou-2": state["iou"].item(1),
+                                     "iou-0": state["iou"].item(0),
+                                     "iou-1": state["iou"].item(1),
                                      "miou": state["miou"]}))
 
 
