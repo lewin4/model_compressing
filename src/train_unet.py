@@ -115,13 +115,12 @@ def main():
     best_acc = -math.inf            #负无穷大
     best_acc_epoch = -1
     last_acc = -math.inf
-    stat = model.state_dict()
+
     if not config.get("skip_initial_validation", False):
         last_acc = validate_one_epoch(1, val_loader, model, validator, validation_logger, verbose, DEVICE)
         best_acc = last_acc
         best_acc_epoch = 0
-        print("best_acc: ",best_acc,last_acc)
-        sys.exit()
+
     save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
 
     training_start_timestamp = datetime.now()
@@ -136,7 +135,7 @@ def main():
         last_acc = validate_one_epoch(epoch, val_loader, model, validator, validation_logger, verbose,DEVICE)
         if lr_scheduler.step_epoch():
             # last_acc is between 0 and 100. We need between 0 and 1
-            lr_scheduler.step(last_acc / 100)
+            lr_scheduler.step(last_acc)
 
         if last_acc > best_acc:
             save_state_dict_compressed(

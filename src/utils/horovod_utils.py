@@ -39,7 +39,7 @@ def initialize_horovod() -> bool:
 
 
 # === Optimizer ===
-def get_distributed_learning_rate(learning_rate: float) -> bool:
+def get_distributed_learning_rate(learning_rate: float) -> Union[float]:
     """Returns a learning rate scaled by the number of workers if horovod is available"""
     if HAVE_HOROVOD:
         return learning_rate * hvd.size()
