@@ -9,6 +9,7 @@
 
 from typing import Optional
 
+import logging
 import torch
 from tensorboardX import SummaryWriter
 
@@ -37,8 +38,8 @@ class ValidationLogger(AbstractDataLogger):
 
     def log_final_summary(self, epoch: int, summary: FinalSummary):
         log_to_summary_writer("Validation", epoch * self.batches_per_epoch, summary, self.summary_writer)
-        statement = ", ".join(f"{k} ({v:.2f})" for k, v in summary.items())
-        print(f'{self.get_desc("Epoch", epoch)}: {statement}')
+        statement = ", ".join(f"{k} ({v:.4f})" for k, v in summary.items())
+        logging.info(f'{self.get_desc("Epoch", epoch)}: {statement}')
 
 
 @torch.no_grad()
