@@ -63,8 +63,8 @@ def main():
     # Get the model, optimize its permutations, and compress it
     model_config = config["model"]
     compression_config = model_config["compression_parameters"]
-    model = get_uncompressed_model(model_config["arch"], pretrained=True, path=model_config["model_path"]).to(DEVICE)
-
+    model = get_uncompressed_model(model_config["arch"], pretrained=True, path=model_config["model_path"])
+    model = model.to(DEVICE)
 
 
     if "permutations" in model_config and model_config.get("use_permutations", False):
