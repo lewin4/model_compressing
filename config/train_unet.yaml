@@ -2,8 +2,8 @@ dataloader:
 #  imagenet_path: <your_imagenet_path_here>
 #  imagenet_path: D:\Code\data\cifar-100
 #  imagenet_path: E:\LY\data\cat_vs_dog\train
-  img_dir: E:\LY\data\sewage\small_dataset\small_img
-  mask_dir: E:\LY\data\sewage\small_dataset\small_label
+  img_dir: D:\Code\data\sewage\small_dataset\small_img
+  mask_dir: D:\Code\data\sewage\small_dataset\small_label
   num_workers: 8
   batch_size: 4
   train_shuffle: True
@@ -32,7 +32,7 @@ output_path: ../output
 # model architecture
 model:
   arch: custom
-  model_path: E:\LY\U-Net\output\checkpoints\unet_model.pth
+  model_path: D:\Code\U-Net\output\checkpoints\unet_model.pth
 
   compression_parameters:
     ignored_modules:
