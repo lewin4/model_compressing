@@ -27,7 +27,7 @@ except ImportError:
 
 class SegmentationMetric(object):
     def __init__(self, numClass):
-        self.numClass = numClass
+        self.numClass = numClass        #不包含背景的类别
         self.confusionMatrix = np.zeros((self.numClass,) * 2)  # 混淆矩阵（空）
         self.iou = np.zeros((self.numClass), float)
         self.acc = 0.
@@ -97,6 +97,7 @@ class SegmentationMetric(object):
         return FWIoU
 
     def addBatch(self, imgPredict, imgLabel, loss):
+        imgPredict = imgPredict[1]      #只用在hrnet,它有两个输出
         assert imgPredict.shape == imgLabel.shape
         predicted = torch.sigmoid(imgPredict)
         predicted = (predicted>0.5).float()

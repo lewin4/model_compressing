@@ -79,7 +79,7 @@ def main():
         )
 
     uncompressed_model_size_bits = compute_model_nbits(model)
-    model = compress_model(model, **compression_config).to(DEVICE)
+    model.model = compress_model(model.model, **compression_config).to(DEVICE)
 
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits, summary_writer)
@@ -100,15 +100,15 @@ def main():
 
     # Get imagenet optimizer, criterion, trainer and validator
     optimizer = get_optimizer(model, config)
-    criterion = get_imagenet_criterion()
+    # criterion = get_imagenet_criterion()
     n_epochs = config["epochs"]
     assert n_epochs > 0
     n_batch_size = len(train_loader)
     lr_scheduler = get_learning_rate_scheduler(config, optimizer, n_epochs, n_batch_size)
 
-    trainer = ImagenetTrainer(model, optimizer, lr_scheduler, criterion)
+    trainer = ImagenetTrainer(model.model, optimizer, lr_scheduler, model.loss)
     training_logger = TrainingLogger(summary_writer)
-    validator = ImagenetValidator(model, criterion)
+    validator = ImagenetValidator(model.model, model.loss)
     validation_logger = ValidationLogger(n_batch_size, summary_writer)
 
     # Keep track of the best validation accuracy we have seen to save the best model at the end of every epoch
@@ -117,28 +117,28 @@ def main():
     last_acc = -math.inf
 
     if not config.get("skip_initial_validation", False):
-        last_acc = validate_one_epoch(1, val_loader, model, validator, validation_logger, verbose, DEVICE)
+        last_acc = validate_one_epoch(1, val_loader, model.model, validator, validation_logger, verbose, DEVICE)
         best_acc = last_acc
         best_acc_epoch = 0
-        save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
+        save_state_dict_compressed(model.model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
 
     training_start_timestamp = datetime.now()
     for epoch in range(1, n_epochs + 1):
-        train_one_epoch(epoch, train_loader, model, trainer, training_logger, verbose, DEVICE)
+        train_one_epoch(epoch, train_loader, model.model, trainer, training_logger, verbose, DEVICE)
 
         # Save the current state of the model after every epoch
         save_state_dict_compressed(
-            model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, f"{epoch}.pth")
+            model.model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, f"{epoch}.pth")
         )
 
-        last_acc = validate_one_epoch(epoch, val_loader, model, validator, validation_logger, verbose,DEVICE)
+        last_acc = validate_one_epoch(epoch, val_loader, model.model, validator, validation_logger, verbose,DEVICE)
         if lr_scheduler.step_epoch():
             # last_acc is between 0 and 100. We need between 0 and 1
             lr_scheduler.step(last_acc)
 
         if last_acc > best_acc:
             save_state_dict_compressed(
-                model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
+                model.model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
             )
             best_acc = last_acc
             best_acc_epoch = epoch
