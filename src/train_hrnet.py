@@ -69,7 +69,7 @@ def main():
 
     if "permutations" in model_config and model_config.get("use_permutations", False):
         permute_model(
-            model,
+            model.model,
             compression_config["fc_subvector_size"],
             compression_config["pw_subvector_size"],
             compression_config["large_subvectors"],
