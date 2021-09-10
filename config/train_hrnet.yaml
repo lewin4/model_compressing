@@ -2,16 +2,16 @@ dataloader:
 #  imagenet_path: <your_imagenet_path_here>
 #  imagenet_path: D:\Code\data\cifar-100
 #  imagenet_path: E:\LY\data\cat_vs_dog\train
-  img_dir: D:\Code\data\sewage\small_dataset\small_img
-  mask_dir: D:\Code\data\sewage\small_dataset\small_label
+  img_dir: E:\LY\data\sewage\small_dataset\small_img
+  mask_dir: E:\LY\data\sewage\small_dataset\small_label
   num_workers: 8
   batch_size: 4
   train_shuffle: True
   validation_shuffle: False
   pin_memory: True
   img_shape:
+    - 576
     - 768
-    - 1024
 
 # training hyperparams
 epochs: 2
@@ -32,7 +32,7 @@ output_path: ../output/hrnet
 # model architecture
 model:
   arch: custom
-  model_path: D:\Code\HRNet-Semantic-Segmentation\tools\output\sewage\seg_hrnet_ocr_w48_train_512x1024_sgd_lr1e-2_wd5e-4_bs_12_epoch484\best_model.pth
+  model_path: E:\LY\HRNet-Semantic-Segmentation\tools\output\sewage\seg_hrnet_ocr_w48_train_512x1024_sgd_lr1e-2_wd5e-4_bs_12_epoch484\best_model.pth
 
   compression_parameters:
     ignored_modules:

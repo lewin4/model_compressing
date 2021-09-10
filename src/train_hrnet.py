@@ -67,22 +67,22 @@ def main():
     model = model.to(DEVICE)
 
 
-    if "permutations" in model_config and model_config.get("use_permutations", False):
-        permute_model(
-            model.model,
-            compression_config["fc_subvector_size"],
-            compression_config["pw_subvector_size"],
-            compression_config["large_subvectors"],
-            permutation_groups=model_config.get("permutations", []),
-            layer_specs=compression_config["layer_specs"],
-            sls_iterations=model_config["sls_iterations"],
-        )
-
-    uncompressed_model_size_bits = compute_model_nbits(model)
-    model.model = compress_model(model.model, **compression_config).to(DEVICE)
-
-    compressed_model_size_bits = compute_model_nbits(model)
-    log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits, summary_writer)
+    # if "permutations" in model_config and model_config.get("use_permutations", False):
+    #     permute_model(
+    #         model.model,
+    #         compression_config["fc_subvector_size"],
+    #         compression_config["pw_subvector_size"],
+    #         compression_config["large_subvectors"],
+    #         permutation_groups=model_config.get("permutations", []),
+    #         layer_specs=compression_config["layer_specs"],
+    #         sls_iterations=model_config["sls_iterations"],
+    #     )
+    #
+    # uncompressed_model_size_bits = compute_model_nbits(model)
+    # model.model = compress_model(model.model, **compression_config).to(DEVICE)
+    #
+    # compressed_model_size_bits = compute_model_nbits(model)
+    # log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits, summary_writer)
 
     if HAVE_HOROVOD:
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
