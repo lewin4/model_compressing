@@ -236,7 +236,7 @@ class ImagenetValidator(ModelValidator):
         # inputs = data[0].cuda(non_blocking=True)
         # targets = data[1].cuda(non_blocking=True)
         inputs = data[0].to(device,non_blocking=True)
-        targets = data[1].float().unsqueeze(1).to(device,non_blocking=True)
+        targets = data[1].long().to(device,non_blocking=True)
 
         outputs = self._model(inputs)
         loss = self._criterion(outputs, targets)
