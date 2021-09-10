@@ -174,15 +174,11 @@ model:
                    stage4.0.branches.3.3.conv1,  overconv.3.0
       ]
     -
-      - parents: [overconv.0.0, overconv.0.1,
-                  overconv.1.0, overconv.1.1,
-                  overconv.2.0, overconv.2.1,
-                  overconv.3.0, overconv.3.1,
-      ]
-      - children: [aux_head.0, conv3x3_ocr.0]
+      - parents: [aux_conv.0, aux_conv.1]
+      - children: [aux_head.0]
     -
       - parents: [aux_head.0]
-      - children: [aux_head.0]
+      - children: [aux_head.3]
     -
       - parents: [ocr_distri_head.object_context_block.f_object.0,
                   ocr_distri_head.object_context_block.f_object.1.0
