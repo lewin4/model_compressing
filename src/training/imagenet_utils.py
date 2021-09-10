@@ -125,7 +125,7 @@ class SegmentationMetric(object):
             "loss": loss.item(),
             "acc": acc,
             "iou": iou,
-            "miou": np.nanmean(iou).item()
+            "miou": np.nanmean(iou[1:]).item()
         }
         return self.confusionMatrix
 
@@ -248,7 +248,7 @@ class ImagenetValidator(ModelValidator):
         return TQDMState({
             "loss": f'{state["loss"]:.2f}',
             "accuracy": f'{state["acc"]:.2f}',
-            "iou(0,1)": f'({state["iou"].item(0):.2f},{state["iou"].item(1):.2f})',
+            "iou(1,2)": f'({state["iou"].item(1):.2f},{state["iou"].item(2):.2f})',
             "miou": f'{state["miou"]:.2f}',
         })
 
@@ -256,8 +256,8 @@ class ImagenetValidator(ModelValidator):
         state = self._accumulator.get_average_state()
         return FinalSummary(Summary({"loss": state["loss"],
                                      "accuracy": state["acc"],
-                                     "iou-1": state["iou"].item(0),
-                                     "iou-2": state["iou"].item(1),
+                                     "iou-1": state["iou"].item(1),
+                                     "iou-2": state["iou"].item(2),
                                      "miou": state["miou"]}))
 
     def get_final_metric(self):
@@ -290,8 +290,8 @@ class ImagenetTrainer(ModelTrainer):
         state = self.accumulator.get_average_state()
         return FinalSummary(Summary({"loss": state["loss"],
                                      "accuracy": state["acc"],
-                                     "iou-0": state["iou"].item(0),
                                      "iou-1": state["iou"].item(1),
+                                     "iou-2": state["iou"].item(2),
                                      "miou": state["miou"]}))
 
 
