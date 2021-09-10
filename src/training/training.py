@@ -71,7 +71,7 @@ class ModelTrainer(AbstractDataHandler):
         return TQDMState({
             "loss": f'{state["loss"]:.2f}',
             "accuracy": f'{state["acc"]:.2f}',
-            "iou(0,1)": f'({state["iou"].item(0):.2f},{state["iou"].item(1):.2f})',
+            "iou(1,2)": f'({state["iou"].item(1):.2f},{state["iou"].item(2):.2f})',
             "miou": f'{state["miou"]:.2f}',
         })
 
@@ -91,8 +91,8 @@ class TrainingLogger(AbstractDataLogger):
         self.summary_writer = summary_writer
 
     def log_intermediate_summary(self, idx: int, summary: IntermediateSummary):
-        summary["iou-0"] = summary["iou"].item(0)
         summary["iou-1"] = summary["iou"].item(1)
+        summary["iou-2"] = summary["iou"].item(2)
         del summary["iou"]
         log_to_summary_writer("Train", idx, summary, self.summary_writer)
 
