@@ -28,7 +28,7 @@ from .utils.horovod_utils import initialize_horovod
 from .utils.logging import get_tensorboard_logger, log_compression_ratio, log_config, setup_pretty_logging
 from .utils.model_size import compute_model_nbits
 from .utils.models import get_uncompressed_model
-from .utils.state_dict_utils import save_state_dict_compressed
+from .utils.state_dict_utils import save_state_dict_compressed, load_state_dict
 
 # fmt: off
 try:
@@ -63,9 +63,9 @@ def main():
     # Get the model, optimize its permutations, and compress it
     model_config = config["model"]
     compression_config = model_config["compression_parameters"]
+
     model = get_uncompressed_model(model_config["arch"], pretrained=True, path=model_config["model_path"])
     model = model.to(DEVICE)
-
 
     if "permutations" in model_config and model_config.get("use_permutations", False):
         permute_model(
@@ -83,6 +83,9 @@ def main():
 
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits, summary_writer)
+
+    if "compressed_model_path" in model_config and model_config.get("compressed_model_path", None) is not None:
+        model.model = load_state_dict(model.model, model_config["compressed_model_path"]).to(DEVICE)
 
     if HAVE_HOROVOD:
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)

@@ -15,6 +15,7 @@ import numpy as np
 from .training import ModelTrainer
 from .training_types import FinalSummary, TQDMState, Summary
 from .validating import ModelValidator
+from torch.nn import functional as F
 
 # fmt: off
 try:
@@ -102,8 +103,8 @@ class SegmentationMetric(object):
         # output = pred.cpu().numpy().transpose(0, 2, 3, 1)
         # seg_pred = np.asarray(np.argmax(output, axis=3), dtype=np.uint8)
 
-        imgPredict = imgPredict.cpu().detach().numpy()
-        preds = np.asarray(np.argmax(imgPredict,axis=1), np.int32)
+        imgPredict = imgPredict.cpu().detach().numpy().transpose(0, 2, 3, 1)
+        preds = np.asarray(np.argmax(imgPredict, axis=3), np.int32)
         y = imgLabel.cpu().detach().numpy()
 
         assert preds.shape == y.shape
@@ -116,7 +117,7 @@ class SegmentationMetric(object):
         acc = self.pixelAccuracy()
 
         self.iou += iou
-        self.miou += np.nanmean(iou).item()
+        self.miou += np.nanmean(iou[1:]).item()
         self.count += 1
         self.loss += np.array(loss.item())
         self.acc += acc
@@ -217,7 +218,7 @@ class ImagenetValidator(ModelValidator):
     def __init__(self, model, criterion):
         super().__init__()
         # self._accumulator = ImagenetAccumulator()
-        self._accumulator = SegmentationMetric(2)
+        self._accumulator = SegmentationMetric(3)
 
         self._model = model
         self._criterion = criterion
@@ -241,6 +242,8 @@ class ImagenetValidator(ModelValidator):
         outputs = self._model(inputs)
         loss = self._criterion(outputs, targets)
 
+        outputs[1] = F.interpolate(input=outputs[1], size=(targets.size(1), targets.size(2)),
+                                   mode='bilinear', align_corners=True)
         self._accumulator.addBatch(outputs, targets,  loss)
 
     def get_tqdm_state(self):

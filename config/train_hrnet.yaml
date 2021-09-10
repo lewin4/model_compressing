@@ -14,7 +14,7 @@ dataloader:
     - 768
 
 # training hyperparams
-epochs: 2
+epochs: 10
 learning_rate: 0.0001
 momentum: 0.9
 weight_decay: 0.00001 # 1e-4
@@ -26,12 +26,13 @@ lr_scheduler:
   type: cosine
   min_lr: 1.e-6
 
-skip_initial_validation: False
+skip_initial_validation: True
 output_path: ../output/hrnet
 
 # model architecture
 model:
   arch: custom
+  compressed_model_path: ../output/hrnet/trained_models/best.pth
   model_path: E:\LY\HRNet-Semantic-Segmentation\tools\output\sewage\seg_hrnet_ocr_w48_train_512x1024_sgd_lr1e-2_wd5e-4_bs_12_epoch484\best_model.pth
 
   compression_parameters:
