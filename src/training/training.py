@@ -48,9 +48,8 @@ class ModelTrainer(AbstractDataHandler):
 
         self.optimizer.zero_grad()
         outputs, loss = self.pass_to_model(inputs, targets)
-        targets = targets.unsqueeze(1)
 
-        outputs[1] = F.interpolate(input=outputs[1], size=(targets.size(2), targets.size(3)),
+        outputs[1] = F.interpolate(input=outputs[1], size=(targets.size(1), targets.size(2)),
                                 mode='bilinear', align_corners=True)
         self.update_state(targets, outputs, loss)
 

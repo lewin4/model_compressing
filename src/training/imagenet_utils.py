@@ -102,9 +102,9 @@ class SegmentationMetric(object):
         # output = pred.cpu().numpy().transpose(0, 2, 3, 1)
         # seg_pred = np.asarray(np.argmax(output, axis=3), dtype=np.uint8)
 
-        imgPredict = imgPredict.cpu().numpy()
+        imgPredict = imgPredict.cpu().detach().numpy()
         preds = np.asarray(np.argmax(imgPredict,axis=1), np.int32)
-        y = imgLabel.cpu().numpy()
+        y = imgLabel.cpu().detach().numpy()
 
         assert preds.shape == y.shape
         # predicted = torch.sigmoid(imgPredict)
@@ -268,7 +268,7 @@ class ImagenetValidator(ModelValidator):
 class ImagenetTrainer(ModelTrainer):
     def __init__(self, model, optimizer, lr_scheduler, criterion):
         super().__init__(model, optimizer, lr_scheduler)
-        self.accumulator = SegmentationMetric(2)
+        self.accumulator = SegmentationMetric(3)
         self.criterion = criterion
 
     def reset(self):
