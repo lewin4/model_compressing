@@ -98,10 +98,18 @@ class SegmentationMetric(object):
 
     def addBatch(self, imgPredict, imgLabel, loss):
         imgPredict = imgPredict[1]      #只用在hrnet,它有两个输出
-        assert imgPredict.shape == imgLabel.shape
-        predicted = torch.sigmoid(imgPredict)
-        predicted = (predicted>0.5).float()
-        preds, y = predicted.cpu().numpy(), imgLabel.cpu().numpy()
+
+        # output = pred.cpu().numpy().transpose(0, 2, 3, 1)
+        # seg_pred = np.asarray(np.argmax(output, axis=3), dtype=np.uint8)
+
+        imgPredict = imgPredict.cpu().numpy()
+        preds = np.asarray(np.argmax(imgPredict,axis=1), np.int32)
+        y = imgLabel.cpu().numpy()
+
+        assert preds.shape == y.shape
+        # predicted = torch.sigmoid(imgPredict)
+        # predicted = (predicted>0.5).float()
+        # preds, y = predicted.cpu().numpy(), imgLabel.cpu().numpy()
         preds, y = preds.astype(np.int32), y.astype(np.int32)
         self.confusionMatrix += self.genConfusionMatrix(preds, y)  # 得到混淆矩阵
         iou = self.IntersectionOverUnion()
