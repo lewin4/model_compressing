@@ -11,6 +11,7 @@ import math
 from abc import abstractmethod
 from typing import Optional, Tuple
 import logging
+from torch.nn import functional as F
 
 import torch
 from tensorboardX import SummaryWriter
@@ -42,10 +43,15 @@ class ModelTrainer(AbstractDataHandler):
         # inputs = data[0].cuda(non_blocking=True)
         # targets = data[1].cuda(non_blocking=True)
         inputs = data[0].to(device, non_blocking=True)
-        targets = data[1].float().unsqueeze(1).to(device,non_blocking=True)
+        # targets = data[1].long().unsqueeze(1).to(device,non_blocking=True)
+        targets = data[1].long().to(device, non_blocking=True)
 
         self.optimizer.zero_grad()
         outputs, loss = self.pass_to_model(inputs, targets)
+        targets = targets.unsqueeze(1)
+
+        outputs[1] = F.interpolate(input=outputs[1], size=(targets.size(2), targets.size(3)),
+                                mode='bilinear', align_corners=True)
         self.update_state(targets, outputs, loss)
 
         loss.backward()
