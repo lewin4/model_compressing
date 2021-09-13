@@ -190,5 +190,5 @@ model:
                   ocr_distri_head.object_context_block.f_pixel.1.0]
       - children: [ocr_distri_head.object_context_block.f_pixel.2]
     -
-      - parents: [ocr_distri_head.conv_bn_dropout.0, ocr_distri_head.conv_bn_dropout.1.0]
+      - parents: [ocr_distri_head.convtrans]
       - children: [cls_head]
