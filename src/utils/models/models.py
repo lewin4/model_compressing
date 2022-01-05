@@ -12,13 +12,15 @@ from typing import Optional
 import torch
 import torchvision
 from torchvision.models.resnet import model_urls
+from .resnetori import resnet18
 
 
-def get_resnet18(pretrained: bool = False) -> torch.nn.Module:
+def get_resnet18(pretrained: bool = False, **kwargs) -> torch.nn.Module:
     """Get PyTorch's default ResNet-18 model"""
     # Hack to fix SSL error while loading pretrained model -- see https://github.com/pytorch/pytorch/issues/2271
     model_urls["resnet18"] = model_urls["resnet18"].replace("https://", "http://")
-    model = torchvision.models.resnet18(pretrained=pretrained)
+    # model = torchvision.models.resnet18(pretrained=pretrained)
+    model = resnet18(pretrained=pretrained, **kwargs)
     model._arch = "resnet18"
     return model
 
@@ -56,12 +58,16 @@ def get_mask_rcnn(pretrained: bool = False) -> torch.nn.Module:
     return model
 
 
-def get_custom_model(path: str):
-    model = torch.load(path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+def get_custom_model(path: str, pretrained, **kwargs):
+    checkpoint = torch.load(path)
+    kwargs["cfg"] = checkpoint.get("cfg", None)
+    model = get_resnet18(pretrained, **kwargs)
+    model.load_state_dict(checkpoint['state_dict'])
+    # model = torch.load(path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     return model
 
 
-def get_uncompressed_model(arch: str, pretrained: Optional[bool] = True, path=None) -> torch.nn.Module:
+def get_uncompressed_model(arch: str, pretrained: Optional[bool] = True, path=None, **kwargs):
     """Gets an uncompressed network
 
     Parameters:
@@ -72,7 +78,7 @@ def get_uncompressed_model(arch: str, pretrained: Optional[bool] = True, path=No
         model: Uncompressed network
     """
     if arch == "resnet18":
-        model = get_resnet18(pretrained)
+        model = get_resnet18(pretrained, **kwargs)
     elif arch == "resnet50":
         model = get_resnet50(pretrained)
     elif arch == "resnet50ssl":
@@ -80,7 +86,7 @@ def get_uncompressed_model(arch: str, pretrained: Optional[bool] = True, path=No
     elif arch == "maskrcnn":
         model = get_mask_rcnn(pretrained)
     elif arch == "custom" and (path is not None):
-        model = get_custom_model(path)
+        model = get_custom_model(path, pretrained, **kwargs)
     else:
         raise ValueError(f"Unknown model arch: {arch}")
 

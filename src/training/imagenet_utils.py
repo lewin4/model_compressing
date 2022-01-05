@@ -155,7 +155,7 @@ class ImagenetAccumulator(object):
         self._total_loss = 0.
         self._count = 0
 
-    def accumulate(self, targets: torch.Tensor, outputs: torch.Tensor, loss: torch.Tensor):
+    def accumulate(self, outputs: torch.Tensor, targets: torch.Tensor, loss: torch.Tensor):
         """Updates the number of correct predictions and average loss so far.
 
         Parameters
@@ -207,8 +207,8 @@ class ImagenetAccumulator(object):
 class ImagenetValidator(ModelValidator):
     def __init__(self, model, criterion):
         super().__init__()
-        # self._accumulator = ImagenetAccumulator()
-        self._accumulator = SegmentationMetric(2)
+        self._accumulator = ImagenetAccumulator()
+        # self._accumulator = SegmentationMetric(2)
 
         self._model = model
         self._criterion = criterion
@@ -227,39 +227,41 @@ class ImagenetValidator(ModelValidator):
         # inputs = data[0].cuda(non_blocking=True)
         # targets = data[1].cuda(non_blocking=True)
         inputs = data[0].to(device,non_blocking=True)
-        targets = data[1].float().unsqueeze(1).to(device,non_blocking=True)
+        targets = data[1].long().to(device,non_blocking=True)
 
         outputs = self._model(inputs)
         loss = self._criterion(outputs, targets)
 
-        self._accumulator.addBatch(outputs, targets,  loss)
+        self._accumulator.accumulate(outputs, targets, loss)
 
     def get_tqdm_state(self):
-        state = self._accumulator.get_average_state()
+        state = self._accumulator.get_latest_state()
         return TQDMState({
             "loss": f'{state["loss"]:.2f}',
             "accuracy": f'{state["acc"]:.2f}',
-            "iou(0,1)": f'({state["iou"].item(0):.2f},{state["iou"].item(1):.2f})',
-            "miou": f'{state["miou"]:.2f}',
+            # "iou(0,1)": f'({state["iou"].item(0):.2f},{state["iou"].item(1):.2f})',
+            # "miou": f'{state["miou"]:.2f}',
         })
 
     def get_final_summary(self):
         state = self._accumulator.get_average_state()
         return FinalSummary(Summary({"loss": state["loss"],
                                      "accuracy": state["acc"],
-                                     "iou-1": state["iou"].item(0),
-                                     "iou-2": state["iou"].item(1),
-                                     "miou": state["miou"]}))
+                                     # "iou-1": state["iou"].item(0),
+                                     # "iou-2": state["iou"].item(1),
+                                     # "miou": state["miou"]
+                                     }))
 
     def get_final_metric(self):
         state = self._accumulator.get_average_state()
-        return state["miou"]
+        return state["acc"]
 
 
 class ImagenetTrainer(ModelTrainer):
     def __init__(self, model, optimizer, lr_scheduler, criterion):
         super().__init__(model, optimizer, lr_scheduler)
-        self.accumulator = SegmentationMetric(2)
+        # self.accumulator = SegmentationMetric(2)
+        self.accumulator = ImagenetAccumulator()
         self.criterion = criterion
 
     def reset(self):
@@ -272,7 +274,7 @@ class ImagenetTrainer(ModelTrainer):
         return outputs, loss
 
     def update_state(self, targets: torch.Tensor, outputs: torch.Tensor, loss: torch.Tensor):
-        self.accumulator.addBatch(outputs, targets, loss)
+        self.accumulator.accumulate(outputs, targets, loss)
         state = self.accumulator.get_latest_state()
         # self.latest_state = {"loss": state["loss"], "accuracy": state["acc"], "miou": state["miou"]}
         self.latest_state = state
@@ -281,9 +283,10 @@ class ImagenetTrainer(ModelTrainer):
         state = self.accumulator.get_average_state()
         return FinalSummary(Summary({"loss": state["loss"],
                                      "accuracy": state["acc"],
-                                     "iou-0": state["iou"].item(0),
-                                     "iou-1": state["iou"].item(1),
-                                     "miou": state["miou"]}))
+                                     # "iou-0": state["iou"].item(0),
+                                     # "iou-1": state["iou"].item(1),
+                                     # "miou": state["miou"]
+                                     }))
 
 
 # Dice损失函数
@@ -308,5 +311,5 @@ class DiceLoss(nn.Module):
 
 def get_imagenet_criterion():
     """Gets the typical training loss for Imagenet classification"""
-    # return torch.nn.CrossEntropyLoss()
-    return DiceLoss()
+    return torch.nn.CrossEntropyLoss()
+    # return DiceLoss()

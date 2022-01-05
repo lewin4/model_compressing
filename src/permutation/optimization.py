@@ -102,7 +102,7 @@ def optimize_permutation_by_greedy_search(weight: torch.Tensor, subvector_size: 
 
         # Update variance and bucket
         buckets[bucket_to_add]["bucket"].append(index.item())
-        buckets[bucket_to_add]["variance"] = torch.var(weight[:, buckets[bucket_to_add]["bucket"]])
+        buckets[bucket_to_add]["variance"] = torch.var(weight[:, buckets[bucket_to_add]["bucket"]]).item()
 
         if len(buckets[bucket_to_add]["bucket"]) >= max_entries_per_bucket:
             # Remove a bucket when it is full

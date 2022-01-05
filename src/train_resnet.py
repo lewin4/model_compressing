@@ -15,7 +15,7 @@ from datetime import datetime
 import torch
 
 from .compression.model_compression import compress_model
-from .dataloading.imagenet_loader import load_imagenet_train, load_imagenet_val
+from .dataloading.FI_loader import get_loaders
 from .permutation.model_permutation import permute_model
 from .training.imagenet_utils import ImagenetTrainer, ImagenetValidator, get_imagenet_criterion
 from .training.lr_scheduler import get_learning_rate_scheduler
@@ -62,10 +62,11 @@ def main():
     # Get the model, optimize its permutations, and compress it
     model_config = config["model"]
     compression_config = model_config["compression_parameters"]
-    model = get_uncompressed_model(model_config["arch"], pretrained=True).to(DEVICE)    #从网站上下载别人提供的预训练模型
+    model = get_uncompressed_model(model_config["arch"],
+                                   pretrained=False,
+                                   path=model_config["model_path"],
+                                   num_classes=6).to(DEVICE)    #从网站上下载别人提供的预训练模型
     #C:\Users\LiuYan\.cache\torch\hub\checkpoints，下载到这个位置了
-
-    #哈哈3
 
     if "permutations" in model_config and model_config.get("use_permutations", False):
         permute_model(
@@ -89,18 +90,22 @@ def main():
 
     # Create training and validation dataloaders
     dataloader_config = config["dataloader"]
-    val_data_sampler, val_data_loader = load_imagenet_val(
-        dataloader_config["imagenet_path"],
-        dataloader_config["num_workers"],
-        dataloader_config["batch_size"],
-        shuffle=dataloader_config["validation_shuffle"],
-    )
-    train_sampler, train_data_loader = load_imagenet_train(
-        dataloader_config["imagenet_path"],
-        dataloader_config["num_workers"],
-        dataloader_config["batch_size"],
-        shuffle=dataloader_config["train_shuffle"],
-    )
+    # val_data_sampler, val_data_loader = load_imagenet_val(
+    #     dataloader_config["imagenet_path"],
+    #     dataloader_config["num_workers"],
+    #     dataloader_config["batch_size"],
+    #     shuffle=dataloader_config["validation_shuffle"],
+    # )
+    # train_sampler, train_data_loader = load_imagenet_train(
+    #     dataloader_config["imagenet_path"],
+    #     dataloader_config["num_workers"],
+    #     dataloader_config["batch_size"],
+    #     shuffle=dataloader_config["train_shuffle"],
+    # )
+    train_data_loader, val_data_loader, _ = get_loaders(dataloader_config["imagenet_path"],
+                                                        dataloader_config["batch_size"],
+                                                        dataloader_config["image_shape"],
+                                                        num_workers=dataloader_config["num_workers"])
 
     # Get imagenet optimizer, criterion, trainer and validator
     optimizer = get_optimizer(model, config)
@@ -121,7 +126,7 @@ def main():
     last_acc = -math.inf
 
     if not config.get("skip_initial_validation", False):
-        last_acc = validate_one_epoch(0, val_data_loader, model, validator, validation_logger, verbose,DEVICE)
+        last_acc = validate_one_epoch(0, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
         best_acc = last_acc
         best_acc_epoch = 0
 
@@ -129,14 +134,14 @@ def main():
 
     training_start_timestamp = datetime.now()
     for epoch in range(1, n_epochs + 1):
-        train_one_epoch(epoch, train_sampler, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
+        train_one_epoch(epoch, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
 
         # Save the current state of the model after every epoch
         save_state_dict_compressed(
-            model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, f"{epoch}.pth")
+            model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "model.pth")
         )
 
-        last_acc = validate_one_epoch(epoch, val_data_loader, model, validator, validation_logger, verbose,DEVICE)
+        last_acc = validate_one_epoch(epoch, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
         if lr_scheduler.step_epoch():
             # last_acc is between 0 and 100. We need between 0 and 1
             lr_scheduler.step(last_acc / 100)

@@ -42,7 +42,7 @@ class ModelTrainer(AbstractDataHandler):
         # inputs = data[0].cuda(non_blocking=True)
         # targets = data[1].cuda(non_blocking=True)
         inputs = data[0].to(device, non_blocking=True)
-        targets = data[1].float().unsqueeze(1).to(device,non_blocking=True)
+        targets = data[1].long().to(device, non_blocking=True)
 
         self.optimizer.zero_grad()
         outputs, loss = self.pass_to_model(inputs, targets)
@@ -66,8 +66,8 @@ class ModelTrainer(AbstractDataHandler):
         return TQDMState({
             "loss": f'{state["loss"]:.2f}',
             "accuracy": f'{state["acc"]:.2f}',
-            "iou(0,1)": f'({state["iou"].item(0):.2f},{state["iou"].item(1):.2f})',
-            "miou": f'{state["miou"]:.2f}',
+            # "iou(0,1)": f'({state["iou"].item(0):.2f},{state["iou"].item(1):.2f})',
+            # "miou": f'{state["miou"]:.2f}',
         })
 
     def get_intermediate_summary(self) -> IntermediateSummary:
@@ -86,9 +86,9 @@ class TrainingLogger(AbstractDataLogger):
         self.summary_writer = summary_writer
 
     def log_intermediate_summary(self, idx: int, summary: IntermediateSummary):
-        summary["iou-0"] = summary["iou"].item(0)
-        summary["iou-1"] = summary["iou"].item(1)
-        del summary["iou"]
+        # summary["iou-0"] = summary["iou"].item(0)
+        # summary["iou-1"] = summary["iou"].item(1)
+        # del summary["iou"]
         log_to_summary_writer("Train", idx, summary, self.summary_writer)
 
     def log_final_summary(self, epoch: int, summary: FinalSummary):
@@ -105,7 +105,7 @@ def train_one_epoch(
     logger: TrainingLogger,
     verbose: bool,
     device: torch.device,
-    train_sampler: Optional[torch.utils.data.DistributedSampler]=None,
+    train_sampler: Optional[torch.utils.data.DistributedSampler] = None,
 ) -> None:
     """Perform one epoch of training given a model, a trainer, and possibly writing to tensorboard
 
