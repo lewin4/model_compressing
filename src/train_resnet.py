@@ -55,8 +55,8 @@ def main():
     default_config = os.path.join(file_path, "../config/train_resnet18.yaml")
     config = load_config(file_path, default_config_path=default_config)
     summary_writer = None
-    if (HAVE_HOROVOD and hvd.rank == 0) or (not HAVE_HOROVOD):
-        summary_writer = get_tensorboard_logger(config["output_path"])
+    # if (HAVE_HOROVOD and hvd.rank == 0) or (not HAVE_HOROVOD):
+    #     summary_writer = get_tensorboard_logger(config["output_path"])
     log_config(config, summary_writer)
 
     # Get the model, optimize its permutations, and compress it

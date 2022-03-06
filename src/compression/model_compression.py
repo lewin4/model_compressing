@@ -8,13 +8,13 @@
 # limitations under the License.
 
 from typing import Callable, Dict, List, NewType, Optional, Set, Union
-
+from collections import OrderedDict
 import torch
 
 from ..compressed_layers.CompressedConv2d import CompressedConv2d
 from ..compressed_layers.CompressedConvTranspose2d import CompressedConvTranspose2d
 from ..compressed_layers.CompressedLinear import CompressedLinear
-from ..compression.coding import get_kmeans_fn
+from ..compression.coding import get_kmeans_fn, get_num_centroids
 
 RecursiveReplaceFn = NewType("RecursieReplaceFn", Callable[[torch.nn.Module, torch.nn.Module, int, str, str], bool])
 
@@ -72,16 +72,113 @@ def apply_recursively_to_model(fn: RecursiveReplaceFn, model: torch.nn.Module, p
             apply_recursively_to_model(fn, child, child_prefixed_name)
 
 
+layer_list = OrderedDict()
+
+
+@torch.no_grad()
+def apply_recursively_to_model_special(
+        fn: RecursiveReplaceFn,
+        model: torch.nn.Module,
+        prefix: str = ""
+) -> None:
+    """Recursively apply fn on all modules in models
+
+    Parameters:
+        fn: The callback function, it is given the parents, the children, the index of the children,
+            the name of the children, and the prefixed name of the children
+            It must return a boolean to determine whether we should stop recursing the branch
+        model: The model we want to recursively apply fn to
+        prefix: String to build the full name of the model's children (eg `layer1` in `layer1.conv1`)
+    """
+    get_prefixed_name = prefix_name_lambda(prefix)
+    global layer_list
+    for idx, named_child in enumerate(model.named_children()):
+
+        child_name, child = named_child
+        child_prefixed_name = get_prefixed_name(child_name)
+
+        if fn(model, child, idx, child_name, child_prefixed_name):
+            layer_list[child_prefixed_name] = (model, child, idx, child_name)
+            # if len(layer_list) == 5:
+            #     multi_compression(model, layer_list, compression_config)
+            continue
+        else:
+            apply_recursively_to_model_special(fn, child, prefix=child_prefixed_name)
+
+
+def get_code_and_codebook(
+        reshaped_layers_weight: OrderedDict,
+        k: int,
+        kmeans_n_iters: int,
+) -> Dict:
+    """生成多层共享的编码和码本
+
+    Parameters:
+        reshaped_layers_weight: 这是一个有序字典，键-每个卷积层的在整个模型中的名字，值-(整形后的层权重
+        值，在上一层中的序号(假如上一层是一个有序module的话))
+        k: 码本的长度或者说是大小
+        kmeans_n_iters: 量化次数
+    Returns:
+        一个字典，键-卷积核大小，值-(生成的码本, (每个卷积层的在整个模型中的名字, 生成的该层的编码))
+    """
+    # weight_group = torch.empty((1, 9))
+
+    weight_groups = {}
+    for name, content in reshaped_layers_weight.items():
+        reshaped_weight = content[0]
+        parent = content[2]
+        assert len(reshaped_weight.shape) == 2
+        size_code, size = reshaped_weight.size()
+        id = content[1]
+
+        if size not in weight_groups:
+            weight_groups[size] = [torch.Tensor().to(reshaped_weight.device), []]
+        weight_groups[size][0] = torch.cat((weight_groups[size][0], reshaped_weight), 0)
+        weight_groups[size][1].append((name, id, parent, ))
+
+    # num_blocks_per_row = (c_in * kernel_height * kernel_width) // subvector_size
+    # num_centroids = get_num_centroids(num_blocks_per_row, c_out, k)
+    codebook, codes = kmeans_fn(training_set, k=k, n_iters=kmeans_n_iters)
+    codes_matrix = codes.view(-1, num_blocks_per_row)
+    print("a")
+    return weight_groups
+
+def get_reshapeed_weight(
+        conv: torch.nn.Conv2d,
+        large_subvectors: bool,
+        pw_subvector_size: int,
+) -> torch.Tensor:
+    weight = conv.weight.detach()
+
+    c_out, c_in, kernel_width, kernel_height = weight.size()
+    reshaped_weight = weight.reshape(c_out, -1).detach()
+
+    # For 1x1 convs, this is always 1
+    subvector_size = kernel_height * kernel_width
+    is_pointwise_convolution = subvector_size == 1
+
+    # Determine subvector_size
+    if is_pointwise_convolution:
+        subvector_size = pw_subvector_size
+    if large_subvectors and not is_pointwise_convolution:
+        subvector_size *= 2
+
+    assert (c_in * kernel_height * kernel_width) % subvector_size == 0
+
+    training_set = reshaped_weight.reshape(-1, subvector_size)
+    return training_set
+
+
 def compress_model(
-    model: torch.nn.Module,
-    ignored_modules: Union[List[str], Set[str]],
-    k: int,
-    k_means_n_iters: int,
-    k_means_type: str,
-    fc_subvector_size: int,
-    pw_subvector_size: int,
-    large_subvectors: bool,
-    layer_specs: Optional[Dict] = None,
+        model: torch.nn.Module,
+        ignored_modules: Union[List[str], Set[str]],
+        k: int,
+        k_means_n_iters: int,
+        k_means_type: str,
+        fc_subvector_size: int,
+        pw_subvector_size: int,
+        large_subvectors: bool,
+        layer_specs: Optional[Dict] = None,
 ) -> torch.nn.Module:
     """
     Given a neural network, modify it to its compressed representation with hard codes
@@ -106,8 +203,22 @@ def compress_model(
     if layer_specs is None:
         layer_specs = {}
 
+    def multi_compression(
+            model: torch.nn.Module,
+    ):
+        reshaped_layers_weight = OrderedDict()
+        for name, content in layer_list.items():
+            parent = content[0]
+            layer = content[1]
+            id_in_parent = content[2]
+            reshaped_weight = get_reshapeed_weight(layer, large_subvectors, pw_subvector_size)
+            reshaped_layers_weight[name] = (reshaped_weight, id_in_parent, parent)
+        get_code_and_codebook(reshaped_layers_weight)
+        print("aaa")
+        pass
+
     def _compress_and_replace_layer(
-        parent: torch.nn.Module, child: torch.nn.Module, idx: int, name: str, prefixed_child_name: str
+            parent: torch.nn.Module, child: torch.nn.Module, idx: int, name: str, prefixed_child_name: str
     ) -> bool:
         """Compresses the `child` layer and replaces the uncompressed version into `parent`"""
 
@@ -115,7 +226,7 @@ def compress_model(
         assert isinstance(child, torch.nn.Module)
 
         if prefixed_child_name in ignored_modules:
-            return True
+            return False
 
         child_layer_specs = layer_specs.get(prefixed_child_name, {})
 
@@ -127,10 +238,10 @@ def compress_model(
         _pw_subvector_size = child_layer_specs.get("subvector_size", pw_subvector_size)
 
         if isinstance(child, torch.nn.Conv2d):
-            compressed_child = CompressedConv2d.from_uncompressed(
-                child, _k, _kmeans_n_iters, _kmeans_fn, _large_subvectors, _pw_subvector_size, name=prefixed_child_name
-            )
-            _replace_child(parent, name, compressed_child, idx)
+            # compressed_child = CompressedConv2d.from_uncompressed(child, _k, _kmeans_n_iters, _kmeans_fn,
+            #                                                       _large_subvectors, _pw_subvector_size,
+            #                                                       name=prefixed_child_name)
+            # _replace_child(parent, name, compressed_child, idx)
             return True
 
         elif isinstance(child, torch.nn.ConvTranspose2d):
@@ -150,5 +261,6 @@ def compress_model(
         else:
             return False
 
-    apply_recursively_to_model(_compress_and_replace_layer, model)
+    apply_recursively_to_model_special(_compress_and_replace_layer, model)
+    multi_compression(model)
     return model

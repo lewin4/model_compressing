@@ -2,8 +2,8 @@ dataloader:
 #  imagenet_path: <your_imagenet_path_here>
 #  imagenet_path: D:\Code\data\cifar-100
   imagenet_path: E:\LY\data\classification_aug
-  num_workers: 8
-  batch_size: 16
+  num_workers: 4
+  batch_size: 8
   image_shape: [192, 256]
   train_shuffle: True
   validation_shuffle: False
@@ -43,7 +43,7 @@ model:
     # Small or large block compression regime for convolutional layers
     large_subvectors: False
     k_means_type: src # kmeans, kmedians, src, slow_src
-    k_means_n_iters: 10
+    k_means_n_iters: 20
 
     # Used to overwrite configs
     layer_specs:

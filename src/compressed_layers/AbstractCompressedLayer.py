@@ -11,6 +11,7 @@ import logging
 from abc import ABC, abstractmethod
 
 import torch.nn as nn
+import torch
 
 
 class AbstractCompressedLayer(ABC, nn.Module):
@@ -19,7 +20,7 @@ class AbstractCompressedLayer(ABC, nn.Module):
     def __init__(self):
         super(AbstractCompressedLayer, self).__init__()
 
-    def initialize_codes(self, codes_matrix: nn.Module, codebook: nn.Module) -> None:
+    def initialize_codes(self, codes_matrix: torch.Tensor, codebook: torch.Tensor) -> None:
         """Save the codes using the smalles amount of memory possible"""
         if codebook.size(0) <= (1 << 8):
             self.codes_matrix = nn.Parameter(codes_matrix.byte(), requires_grad=False)

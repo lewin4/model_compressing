@@ -51,7 +51,7 @@ class CompressedConv2d(AbstractCompressedLayer):
         else:
             self.bias = None
 
-        self.codebook = nn.Parameter(codebook)
+        self.codebook = codebook
 
     def _get_uncompressed_weight(self):
         decoded_weights = decode(self.codes_matrix, self.codebook).float()
