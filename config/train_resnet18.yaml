@@ -50,6 +50,16 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
+    n_multi_layer: 5
+    multi_layer_specs:
+      9:
+        k: 256
+        k_means_type: src
+        k_means_n_iters: 100
+      4:
+        k: 256
+        k_means_type: src
+        k_means_n_iters: 50
 
   use_permutations: False
   sls_iterations: 10_000

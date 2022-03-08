@@ -108,8 +108,8 @@ def apply_recursively_to_model_special(
 
 def get_code_and_codebook(
         reshaped_layers_weight: OrderedDict,
-        k: int,
-        kmeans_n_iters: int,
+        multi_layer_specs: Dict,
+        n_multi_layer: int
 ) -> Dict:
     """生成多层共享的编码和码本
 
@@ -121,27 +121,62 @@ def get_code_and_codebook(
     Returns:
         一个字典，键-卷积核大小，值-(生成的码本, (每个卷积层的在整个模型中的名字, 生成的该层的编码))
     """
-    # weight_group = torch.empty((1, 9))
+
+    # group_list = []
+    # a_dict = {}
+    # for name, content in reshaped_layers_weight.items():
+    #     a_dict[name] = content
+    #     if len(a_dict) >= n_multi_layer:
+    #         group_list.append(a_dict)
+    #         a_dict = {}
+    # for i in range(0, n_multi_layer):
 
     weight_groups = {}
-    for name, content in reshaped_layers_weight.items():
+    for i, (name, content) in enumerate(reshaped_layers_weight.items()):
         reshaped_weight = content[0]
+        id = content[1]
         parent = content[2]
         assert len(reshaped_weight.shape) == 2
         size_code, size = reshaped_weight.size()
-        id = content[1]
 
         if size not in weight_groups:
-            weight_groups[size] = [torch.Tensor().to(reshaped_weight.device), []]
-        weight_groups[size][0] = torch.cat((weight_groups[size][0], reshaped_weight), 0)
-        weight_groups[size][1].append((name, id, parent, ))
+            weight_groups[size] = [[torch.Tensor().to(reshaped_weight.device), []]]
+        elif len(weight_groups[size][-1][1]) % n_multi_layer == 0:
+            weight_groups[size].append([torch.Tensor().to(reshaped_weight.device), []])
+
+        weight_groups[size][-1][0] = torch.cat((weight_groups[size][-1][0], reshaped_weight), 0)
+        weight_groups[size][-1][1].append([name, id, parent, size_code, int(size_code/content[3])])
+        # if len(weight_groups[size][-1][1]) % n_multi_layer == 0:
+        #     weight_groups[size].append([torch.Tensor().to(reshaped_weight.device), []])
+    #     del reshaped_weight
+    #     del parent
+    # del reshaped_layers_weight
 
     # num_blocks_per_row = (c_in * kernel_height * kernel_width) // subvector_size
     # num_centroids = get_num_centroids(num_blocks_per_row, c_out, k)
-    codebook, codes = kmeans_fn(training_set, k=k, n_iters=kmeans_n_iters)
-    codes_matrix = codes.view(-1, num_blocks_per_row)
-    print("a")
-    return weight_groups
+
+    group_codebook_and_codes = {"codebook": {}, "layer_code": []}
+    for size, contents in weight_groups.items():
+
+        for i, content in enumerate(contents):
+            training_set = content[0]
+            kmeans_fn = get_kmeans_fn(multi_layer_specs[size].get("k_means_type"))
+            k = multi_layer_specs[size].get("k")
+            kmeans_n_iters = multi_layer_specs[size].get("k_means_n_iters")
+            codebook, codes = kmeans_fn(training_set, k=k, n_iters=kmeans_n_iters)
+            # del training_set
+            last = 0
+            for j, layer in enumerate(content[1]):
+                currnt_code = codes[last:layer[3]]
+                currnt_code = currnt_code.view(-1, layer[4])
+                layer.append(currnt_code)
+                layer.append("codebook.size"+str(size)+"."+str(i))
+                last = layer[3]
+                content[1][j] = layer
+
+            group_codebook_and_codes["codebook"]["codebook.size"+str(size)+"."+str(i)] = codebook
+            group_codebook_and_codes["layer_code"] = group_codebook_and_codes["layer_code"] + content[1]
+    return group_codebook_and_codes
 
 def get_reshapeed_weight(
         conv: torch.nn.Conv2d,
@@ -179,6 +214,8 @@ def compress_model(
         pw_subvector_size: int,
         large_subvectors: bool,
         layer_specs: Optional[Dict] = None,
+        multi_layer_specs: Optional[Dict] = None,
+        n_multi_layer: int = 5
 ) -> torch.nn.Module:
     """
     Given a neural network, modify it to its compressed representation with hard codes
@@ -203,19 +240,27 @@ def compress_model(
     if layer_specs is None:
         layer_specs = {}
 
+    if multi_layer_specs is None:
+        multi_layer_specs = {}
+
     def multi_compression(
             model: torch.nn.Module,
     ):
+
+
         reshaped_layers_weight = OrderedDict()
+        global layer_list
         for name, content in layer_list.items():
             parent = content[0]
             layer = content[1]
+            c_out, c_in,  kernel_width, kernel_height = layer.weight.shape
             id_in_parent = content[2]
             reshaped_weight = get_reshapeed_weight(layer, large_subvectors, pw_subvector_size)
-            reshaped_layers_weight[name] = (reshaped_weight, id_in_parent, parent)
-        get_code_and_codebook(reshaped_layers_weight)
-        print("aaa")
-        pass
+            reshaped_layers_weight[name] = (reshaped_weight, id_in_parent, parent, c_out, c_in)
+        # del layer_list
+        group_codebook_and_codes = get_code_and_codebook(reshaped_layers_weight, multi_layer_specs, n_multi_layer)
+        # return group_codebook_and_codes
+
 
     def _compress_and_replace_layer(
             parent: torch.nn.Module, child: torch.nn.Module, idx: int, name: str, prefixed_child_name: str
