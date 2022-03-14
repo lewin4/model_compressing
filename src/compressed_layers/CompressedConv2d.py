@@ -33,6 +33,7 @@ class CompressedConv2d(AbstractCompressedLayer):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
+        name_of_codebook: str = ""
     ):
         super(CompressedConv2d, self).__init__()
 
@@ -52,16 +53,20 @@ class CompressedConv2d(AbstractCompressedLayer):
             self.bias = None
 
         self.codebook = codebook
+        self.name_of_codebook = name_of_codebook
 
-    def _get_uncompressed_weight(self):
-        decoded_weights = decode(self.codes_matrix, self.codebook).float()
+    def _get_uncompressed_weight(self, code_book=None):
+        if code_book is None:
+            decoded_weights = decode(self.codes_matrix, self.codebook).float()
+        else:
+            decoded_weights = decode(self.codes_matrix, code_book[self.name_of_codebook])
         c_out = decoded_weights.size(0)
         return decoded_weights.reshape(c_out, -1, self.kernel_height, self.kernel_width)
 
-    def forward(self, x):
+    def forward(self, x, codebook_dict=None):
         return F.conv2d(
             input=x,
-            weight=self._get_uncompressed_weight(),
+            weight=self._get_uncompressed_weight(codebook_dict),
             bias=self.bias,
             stride=self.stride,
             dilation=self.dilation,
@@ -137,6 +142,7 @@ class CompressedConv2d(AbstractCompressedLayer):
             name: Name of the layer to print alongside mean-squared error
         Returns:
             compressed_layer: Initialized compressed layer
+            @param kmeans_n_iters:
         """
 
         codes_matrix, codebook = CompressedConv2d.get_codes_and_codebook(

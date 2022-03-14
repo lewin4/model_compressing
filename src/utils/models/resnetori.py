@@ -7,6 +7,7 @@ except ImportError:
     from torch.utils.model_zoo import load_url as load_state_dict_from_url
 from typing import Type, Any, Callable, Union, List, Optional
 from .channel_selection import channel_selection
+from src.compressed_layers.AbstractCompressedLayer import AbstractCompressedLayer
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -71,26 +72,49 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, args: List) -> Tensor:
+        assert len(args) == 2, "args should be a list contained two element, the first is module's input," \
+                               "the second is parameterdict"
+        x = args[0]
+        parameter_dict = args[1]
         identity = x
 
-        out = self.bn0(x)
-        out = self.select(out)
-        out = self.relu(out)
-        out = self.conv1(out)
-        out = self.bn1(out)
-        out = self.relu(out)
+        if isinstance(self.conv1, nn.Conv2d) or parameter_dict is None:
+            out = self.bn0(x)
+            out = self.select(out)
+            out = self.relu(out)
+            out = self.conv1(out)
+            out = self.bn1(out)
+            out = self.relu(out)
 
-        out = self.conv2(out)
-        out = self.bn2(out)
+            out = self.conv2(out)
+            out = self.bn2(out)
 
-        if self.downsample is not None:
-            identity = self.downsample(x)
+            if self.downsample is not None:
+                identity = self.downsample(x)
 
-        out += identity
-        out = self.relu(out)
+            out += identity
+            out = self.relu(out)
 
-        return out
+            return out
+        else:
+            out = self.bn0(x)
+            out = self.select(out)
+            out = self.relu(out)
+            out = self.conv1(out, parameter_dict)
+            out = self.bn1(out)
+            out = self.relu(out)
+
+            out = self.conv2(out, parameter_dict)
+            out = self.bn2(out)
+
+            if self.downsample is not None:
+                identity = self.downsample([x, parameter_dict])
+
+            out += identity
+            out = self.relu(out)
+
+            return [out, parameter_dict]
 
 
 class Bottleneck(nn.Module):
@@ -151,6 +175,41 @@ class Bottleneck(nn.Module):
         return out
 
 
+class Downsample(nn.Module):
+    def __init__(
+            self,
+            in_planes: int,
+            out_planes: int,
+            stride: int = 1,
+            norm_layer=None
+    ):
+        super(Downsample, self).__init__()
+        self.add_module("0", conv1x1(in_planes, out_planes, stride))
+        self.add_module("1", norm_layer)
+
+    def is_compressed(self) -> bool:
+        for module in self.modules():
+            if isinstance(module, AbstractCompressedLayer):
+                return True
+
+    def forward(self, args: List) -> Tensor:
+        assert len(args) == 2, "args should be a list contained two element, the first is module's input," \
+                               "the second is parameterdict"
+        x = args[0]
+        parameter_dict = args[1]
+        if self.is_compressed():
+            out = self.get_submodule("0")(x, parameter_dict)
+            out = self.get_submodule("1")(out)
+        else:
+            out = self.get_submodule("0")(x)
+            out = self.get_submodule("1")(out)
+
+        return out
+
+
+
+
+
 class ResNet(nn.Module):
 
     def __init__(
@@ -196,7 +255,7 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=(7, 7), stride=(2, 2), padding=3,
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -226,6 +285,7 @@ class ResNet(nn.Module):
                                        stride=2, dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], cfg=cfg[sum(layers[0:3])*2: sum(layers[0:4])*2],
                                        stride=2, dilate=replace_stride_with_dilation[2])
+        self.codebook = nn.ParameterDict()
         self.bn2 = norm_layer(512 * block.expansion)
         self.select = channel_selection(512 * block.expansion)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -261,9 +321,15 @@ class ResNet(nn.Module):
             self.dilation *= stride
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                norm_layer(planes * block.expansion),
+            # downsample = nn.Sequential(
+            #     conv1x1(self.inplanes, planes * block.expansion, stride),
+            #     norm_layer(planes * block.expansion),
+            # )
+            downsample = Downsample(
+                self.inplanes,
+                planes * block.expansion,
+                stride,
+                norm_layer(planes * block.expansion)
             )
 
         layers = []
@@ -278,18 +344,29 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+    def is_compressed(self) -> bool:
+        for module in self.modules():
+            if isinstance(module, AbstractCompressedLayer):
+                return True
+
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
+
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.bn2(x)
+        if self.is_compressed():
+            x = self.layer1([x, self.codebook])
+            x = self.layer2(x)
+            x = self.layer3(x)
+            x = self.layer4(x)
+        else:
+            x = self.layer1([x, None])
+            x = self.layer2(x)
+            x = self.layer3(x)
+            x = self.layer4(x)
+        x = self.bn2(x[0])
         x = self.select(x)
         x = self.relu(x)
 

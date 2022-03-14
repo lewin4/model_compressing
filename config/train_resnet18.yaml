@@ -22,7 +22,7 @@ lr_scheduler:
   min_lr: 1.e-6
 
 skip_initial_validation: True
-output_path: ../output/0.8
+output_path: ../output
 
 # model architecture
 model:

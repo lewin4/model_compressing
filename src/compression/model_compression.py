@@ -14,6 +14,7 @@ import torch
 from ..compressed_layers.CompressedConv2d import CompressedConv2d
 from ..compressed_layers.CompressedConvTranspose2d import CompressedConvTranspose2d
 from ..compressed_layers.CompressedLinear import CompressedLinear
+from ..compressed_layers.AbstractCompressedLayer import AbstractCompressedLayer
 from ..compression.coding import get_kmeans_fn, get_num_centroids
 
 RecursiveReplaceFn = NewType("RecursieReplaceFn", Callable[[torch.nn.Module, torch.nn.Module, int, str, str], bool])
@@ -145,15 +146,8 @@ def get_code_and_codebook(
             weight_groups[size].append([torch.Tensor().to(reshaped_weight.device), []])
 
         weight_groups[size][-1][0] = torch.cat((weight_groups[size][-1][0], reshaped_weight), 0)
-        weight_groups[size][-1][1].append([name, id, parent, size_code, int(size_code/content[3])])
-        # if len(weight_groups[size][-1][1]) % n_multi_layer == 0:
-        #     weight_groups[size].append([torch.Tensor().to(reshaped_weight.device), []])
-    #     del reshaped_weight
-    #     del parent
-    # del reshaped_layers_weight
+        weight_groups[size][-1][1].append([name, id, parent, size_code, int(size_code/content[3]), content[5]])
 
-    # num_blocks_per_row = (c_in * kernel_height * kernel_width) // subvector_size
-    # num_centroids = get_num_centroids(num_blocks_per_row, c_out, k)
 
     group_codebook_and_codes = {"codebook": {}, "layer_code": []}
     for size, contents in weight_groups.items():
@@ -167,14 +161,13 @@ def get_code_and_codebook(
             # del training_set
             last = 0
             for j, layer in enumerate(content[1]):
-                currnt_code = codes[last:layer[3]]
+                currnt_code = codes[last:last+layer[3]]
                 currnt_code = currnt_code.view(-1, layer[4])
                 layer.append(currnt_code)
-                layer.append("codebook.size"+str(size)+"."+str(i))
+                layer.append("codebook_size"+str(size)+"_"+str(i))
                 last = layer[3]
-                content[1][j] = layer
 
-            group_codebook_and_codes["codebook"]["codebook.size"+str(size)+"."+str(i)] = codebook
+            group_codebook_and_codes["codebook"]["codebook_size"+str(size)+"_"+str(i)] = codebook
             group_codebook_and_codes["layer_code"] = group_codebook_and_codes["layer_code"] + content[1]
     return group_codebook_and_codes
 
@@ -202,6 +195,22 @@ def get_reshapeed_weight(
 
     training_set = reshaped_weight.reshape(-1, subvector_size)
     return training_set
+
+def replace_layer_of_model(
+        model: torch.nn.Module,
+        replaced_layer: AbstractCompressedLayer,
+        child_prefixed_name: str,
+        id: int
+):
+    names = child_prefixed_name.split(".")
+    parent_name = ".".join(names[:-1])
+
+    for idx, named_module in enumerate(model.named_modules()):
+        module_name, module = named_module
+        if module_name == parent_name:
+            parent = module
+            _replace_child(parent, names[-1], replaced_layer, id)
+            return
 
 
 def compress_model(
@@ -246,8 +255,6 @@ def compress_model(
     def multi_compression(
             model: torch.nn.Module,
     ):
-
-
         reshaped_layers_weight = OrderedDict()
         global layer_list
         for name, content in layer_list.items():
@@ -256,9 +263,34 @@ def compress_model(
             c_out, c_in,  kernel_width, kernel_height = layer.weight.shape
             id_in_parent = content[2]
             reshaped_weight = get_reshapeed_weight(layer, large_subvectors, pw_subvector_size)
-            reshaped_layers_weight[name] = (reshaped_weight, id_in_parent, parent, c_out, c_in)
+            reshaped_layers_weight[name] = (reshaped_weight, id_in_parent, parent, c_out, c_in, layer)
         # del layer_list
         group_codebook_and_codes = get_code_and_codebook(reshaped_layers_weight, multi_layer_specs, n_multi_layer)
+        codebook = group_codebook_and_codes["codebook"]
+        layer_code = group_codebook_and_codes["layer_code"]
+        for layer in layer_code:
+            uncompressed_layer = layer[5]
+            c_out, c_in, kernel_width, kernel_height = uncompressed_layer.weight.size()
+            compressed_child = CompressedConv2d(
+                layer[-2],
+                codebook[layer[-1]],
+                kernel_height,
+                kernel_width,
+                uncompressed_layer.bias,
+                uncompressed_layer.stride,
+                uncompressed_layer.padding,
+                uncompressed_layer.dilation,
+                uncompressed_layer.groups,
+                layer[7]
+            )
+            idx = layer[1]
+            replace_layer_of_model(model, compressed_child, layer[0], idx)
+
+        model.codebook = torch.nn.ParameterDict()
+        for name, content in codebook.items():
+            model.codebook.update(OrderedDict({name: torch.nn.Parameter(content)}))
+
+        return model
         # return group_codebook_and_codes
 
 
@@ -307,5 +339,5 @@ def compress_model(
             return False
 
     apply_recursively_to_model_special(_compress_and_replace_layer, model)
-    multi_compression(model)
+    model = multi_compression(model)
     return model
