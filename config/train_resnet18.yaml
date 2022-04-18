@@ -9,8 +9,8 @@ dataloader:
   validation_shuffle: False
 
 # training hyperparams
-epochs: 20
-learning_rate: 0.001
+epochs: 250
+learning_rate: 0.01
 momentum: 0.9
 weight_decay: 0.0001 # 1e-4
 
@@ -22,13 +22,13 @@ lr_scheduler:
   min_lr: 1.e-6
 
 skip_initial_validation: True
-output_path: ../single
+output_path: ../single/no-prune/no-use-permutations
 
 # model architecture
 model:
   arch: custom
   model_path: E:\LY\network-slimming\newhao\model_best.pth.tar
-  state_dict_compressed: ../single/trained_models/best.pth
+  state_dict_compressed:
 
   compression_parameters:
     ignored_modules:
@@ -93,10 +93,16 @@ model:
 #          layer2.0.downsample.0,
 #        ]
       - children: [
-        layer1.0.select,
-        layer1.1.select,
-        layer2.0.select,
         layer2.0.downsample.0,
+        layer1.0.bn0,
+        layer1.0.select,
+        layer1.0.conv1,
+        layer1.1.bn0,
+        layer1.1.select,
+        layer1.1.conv1,
+        layer2.0.bn0,
+        layer2.0.select,
+        layer2.0.conv1,
       ]
     -
       - parents: [
@@ -110,9 +116,13 @@ model:
 #          layer3.0.downsample.0,
 #        ]
       - children: [
-          layer2.1.select,
-          layer3.0.select,
           layer3.0.downsample.0,
+          layer2.1.bn0,
+          layer2.1.select,
+          layer2.1.conv1,
+          layer3.0.bn0,
+          layer3.0.select,
+          layer3.0.conv1,
         ]
     -
       - parents: [
@@ -126,9 +136,13 @@ model:
 #          layer4.0.downsample.0,
 #        ]
       - children: [
-          layer3.1.select,
-          layer4.0.select,
           layer4.0.downsample.0,
+          layer3.1.bn0,
+          layer3.1.select,
+          layer3.1.conv1,
+          layer4.0.bn0,
+          layer4.0.select,
+          layer4.0.conv1,
         ]
     -
       - parents: [
@@ -137,7 +151,11 @@ model:
           layer4.1.conv2, layer4.1.bn2,
         ]
       - children: [
+          fc,
+          bn2,
           layer4.1.conv1,
+          layer4.1.bn0,
+          layer4.1.select,
           select,
         ]
 

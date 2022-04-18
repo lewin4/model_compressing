@@ -20,6 +20,7 @@ import torch.nn as nn
 from torchvision.ops.misc import FrozenBatchNorm2d
 
 from ..compression.model_compression import apply_recursively_to_model
+from ..utils.models.channel_selection import channel_selection
 from .optimization import (
     get_cov_det,
     get_random_permutation,
@@ -53,8 +54,10 @@ def _get_subvector_size(layer: torch.nn.Module, layer_specs: Dict[str, Any]) -> 
     elif isinstance(layer, torch.nn.Linear):
         return layer_specs["fc_subvector_size"]
 
-    else:
-        raise ValueError(f"Got unsupported layer type `{type(layer)}`")
+    elif isinstance(layer, channel_selection):
+        return layer_specs["pw_subvector_size"]
+    # else:
+    #     raise ValueError(f"Got unsupported layer type `{type(layer)}`")
 
 
 def _collect_layers(model: nn.Module) -> Dict:
@@ -76,6 +79,7 @@ def _collect_layers(model: nn.Module) -> Dict:
             or isinstance(layer, nn.BatchNorm2d)
             or isinstance(layer, FrozenBatchNorm2d)
             or isinstance(layer, nn.Linear)
+            or isinstance(layer, channel_selection)
         ):
             layers[prefixed_name] = layer
             return True
@@ -94,6 +98,9 @@ def _is_optimizable(layer: nn.Module, subvector_size: int) -> bool:
 
         if not is_pointwise and subvector_size == height * width:  # 3x3 conv with single block cannot be optimized
             return False
+
+    elif isinstance(layer, channel_selection):
+        return False
 
     return True
 
@@ -222,6 +229,15 @@ def _permute_group(
             assert len(permutation) == child.weight.shape[1], "{} != {}".format(len(permutation), child.weight.shape[1])
             child.weight = torch.nn.Parameter(child.weight[:, permutation])
 
+        elif isinstance(child, channel_selection):
+            assert len(permutation) == child.indexes.shape[0], "{} != {}".format(len(permutation), child.indexes.shape[0])
+            child.indexes = torch.nn.Parameter(child.indexes[permutation])
+
+        elif isinstance(child, torch.nn.BatchNorm2d) or isinstance(child, FrozenBatchNorm2d):
+            child.weight = torch.nn.Parameter(child.weight[permutation])
+            child.bias = torch.nn.Parameter(child.bias[permutation])
+            child.running_mean = child.running_mean[permutation]
+            child.running_var = child.running_var[permutation]
 
         else:
             raise ValueError(f"Child layer permutation not supported: {type(child)}")
