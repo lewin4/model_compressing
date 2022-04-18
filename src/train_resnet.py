@@ -8,7 +8,7 @@
 # limitations under the License.
 
 """Loads an uncompressed pretrained model, compresses the model and evaluates its performance on imagenet"""
-
+import logging
 import math
 import os
 from datetime import datetime
@@ -27,7 +27,7 @@ from .utils.horovod_utils import initialize_horovod
 from .utils.logging import get_tensorboard_logger, log_compression_ratio, log_config, setup_pretty_logging
 from .utils.model_size import compute_model_nbits
 from .utils.models import get_uncompressed_model
-from .utils.state_dict_utils import save_state_dict_compressed
+from .utils.state_dict_utils import save_state_dict_compressed, load_state_dict
 
 # fmt: off
 try:
@@ -54,9 +54,9 @@ def main():
     file_path = os.path.dirname(__file__)
     default_config = os.path.join(file_path, "../config/train_resnet18.yaml")
     config = load_config(file_path, default_config_path=default_config)
-    summary_writer = None
-    # if (HAVE_HOROVOD and hvd.rank == 0) or (not HAVE_HOROVOD):
-    #     summary_writer = get_tensorboard_logger(config["output_path"])
+    # summary_writer = None
+    if (HAVE_HOROVOD and hvd.rank == 0) or (not HAVE_HOROVOD):
+        summary_writer = get_tensorboard_logger(config["output_path"])
     log_config(config, summary_writer)
 
     # Get the model, optimize its permutations, and compress it
@@ -130,18 +130,27 @@ def main():
         best_acc = last_acc
         best_acc_epoch = 0
 
+    if model_config["resume"] is not None:
+        state = torch.load(model_config["resume"])
+        model.load_state_dict(state["model"])
+        optimizer.load_state_dict(state["optimizer"])
+
     save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
 
     training_start_timestamp = datetime.now()
     for epoch in range(1, n_epochs + 1):
         train_one_epoch(epoch, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
 
-        # Save the current state of the model after every epoch
-        save_state_dict_compressed(
-            model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "model.pth")
-        )
-
         last_acc = validate_one_epoch(epoch, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
+
+
+        # Save the current state of the model after every epoch
+        state = {"model": model.state_dict(),
+                 "optimizer": optimizer.state_dict()}
+        torch.save(state, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "checkpoint.pth"))
+        # save_state_dict_compressed(
+        #     model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "model.pth")
+        # )
         if lr_scheduler.step_epoch():
             # last_acc is between 0 and 100. We need between 0 and 1
             lr_scheduler.step(last_acc / 100)
@@ -155,7 +164,7 @@ def main():
 
     # Done training!
     if verbose:
-        print("Done training!")
+        logging.info("Done training!")
         summary_writer.close()
         with open(os.path.join(config["output_path"], "results.txt"), "w") as f:
             print(f"{start_timestamp:%Y-%m-%d %H:%M:%S}", file=f)

@@ -9,7 +9,7 @@ dataloader:
   validation_shuffle: False
 
 # training hyperparams
-epochs: 100
+epochs: 200
 learning_rate: 0.01
 momentum: 0.9
 weight_decay: 0.0001 # 1e-4
@@ -22,13 +22,14 @@ lr_scheduler:
   min_lr: 1.e-6
 
 skip_initial_validation: True
-output_path: ../output/0.6multi
+output_path: ../output/0.8-maxmulti
 
 # model architecture
 model:
   arch: custom
-  model_path: E:\LY\network-slimming\newhao\0.8pruned.pth.tar
-  state_dict_compressed: ../output/0.8multi/trained_models/best.pth
+  model_path: E:\LY\network-slimming\newhao\0.8model_best.pth.tar
+  resume:
+  state_dict_compressed: ../output/no-prune-5multi/trained_models/best.pth
 
   compression_parameters:
     ignored_modules:
@@ -51,7 +52,7 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 2
+    n_multi_layer: 20
     multi_layer_specs:
       9:
         k: 256
@@ -150,4 +151,3 @@ model:
           layer4.1.conv1,
           select,
         ]
-

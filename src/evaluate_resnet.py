@@ -47,7 +47,7 @@ def main():
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits)
 
-    model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
+    # model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
 
     dataloader_config = config["dataloader"]
     # val_data_sampler, val_data_loader = load_imagenet_val(
