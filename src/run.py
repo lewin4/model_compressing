@@ -5,4 +5,4 @@ from src import train_resnet, train_unet, train_hrnet, evaluate_resnet
 
 
 if __name__ == "__main__":
-    train_resnet.main()
+    evaluate_resnet.main()

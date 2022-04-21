@@ -28,7 +28,7 @@ output_path: ../single/no-prune/no-use-permutations
 model:
   arch: custom
   model_path: E:\LY\network-slimming\newhao\model_best.pth.tar
-  state_dict_compressed:
+  state_dict_compressed: ../single/trained_models/best.pth
 
   compression_parameters:
     ignored_modules:

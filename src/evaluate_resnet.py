@@ -11,7 +11,9 @@
 
 import os
 import torch
+import torch.nn.functional as F
 import time
+from sklearn.metrics import classification_report
 
 from .compression.model_compression import compress_model
 from .dataloading.imagenet_loader import load_imagenet_val
@@ -63,7 +65,7 @@ def main():
         image_dir=dataloader_config["imagenet_path"],
         batch_size=8,
         img_shape=dataloader_config["image_shape"],
-        radio=[0.2, 0.7, 0.1],
+        radio=[0.7, 0.2, 0.1],
         **kwargs
     )
 
@@ -88,7 +90,32 @@ def main():
         num = len(train_loader.dataset) * (epochs - start_epoch)
         print("\nAll time: {}, \nImage num: {}, \nTime per image: {}".format(times, num, times/float(num)))
 
-    test_fps(0, 200)
+    def test():
+        model.eval()
+        test_loss = 0
+        correct = 0
+        pred_list = torch.Tensor()
+        true_list = torch.Tensor()
+        for data, target in train_loader:
+            data, target = data.cuda(), target.long().cuda()
+            with torch.no_grad():
+                output = model(data)
+                test_loss += F.cross_entropy(output, target, size_average=False).item()  # sum up batch loss
+            pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
+            pred_list = torch.cat((pred_list, pred.squeeze().cpu()), 0)
+            true_list = torch.cat((true_list, target.cpu()), 0)
+            correct += pred.eq(target.data.view_as(pred)).cpu().sum()  # get target have the same shape of pred
+
+        report = classification_report(true_list, pred_list, labels=range(6), digits=4)
+        print(report)
+
+        test_loss /= len(train_loader.dataset)
+        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'.format(
+            test_loss, correct, len(train_loader.dataset),
+            100. * correct / len(train_loader.dataset)))
+        return report
+
+    test()
     # validator = ImagenetValidator(model, get_imagenet_criterion())
     # logger = ValidationLogger(1, None)
     # validate_one_epoch(0, val_data_loader, model, validator, logger, verbose)
