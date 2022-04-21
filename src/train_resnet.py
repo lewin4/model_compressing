@@ -155,7 +155,7 @@ def main():
             # last_acc is between 0 and 100. We need between 0 and 1
             lr_scheduler.step(last_acc / 100)
 
-        if last_acc > best_acc:
+        if last_acc >= best_acc:
             save_state_dict_compressed(
                 model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
             )

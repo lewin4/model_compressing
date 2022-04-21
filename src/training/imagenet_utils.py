@@ -164,8 +164,8 @@ class ImagenetAccumulator(object):
             loss: The loss that the model incurred on making its predictions
         """
 
-        targets = targets.detach()
         outputs = outputs.detach()
+        targets = targets.detach()
         loss = loss.detach().cpu()
 
         _, predicted = outputs.max(dim=1)
