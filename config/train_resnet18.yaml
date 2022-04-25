@@ -29,7 +29,7 @@ model:
   arch: custom
   model_path: E:\LY\network-slimming\newhao\0.8model_best.pth.tar
   resume:
-  state_dict_compressed: ../output/0.8-5multi/trained_models/best.pth
+  state_dict_compressed: ../output/0.8-2multi/trained_models/best.pth
 
   compression_parameters:
     ignored_modules:
@@ -52,7 +52,7 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 5
+    n_multi_layer: 2
     multi_layer_specs:
       9:
         k: 256

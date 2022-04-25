@@ -48,9 +48,10 @@ def main():
     model = compress_model(model, **compression_config).cuda()
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits)
-
-    model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
-
+    if config["model"].get("state_dict_compressed", None) is not None:
+        model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
+    from utils.torchstat import stat
+    stat(model.cpu(), (3, 192, 256))
     dataloader_config = config["dataloader"]
     # val_data_sampler, val_data_loader = load_imagenet_val(
     #     dataloader_config["imagenet_path"],

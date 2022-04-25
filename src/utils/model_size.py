@@ -41,16 +41,24 @@ def compute_model_nbits(model: torch.nn.Module) -> int:
     compressed_dict = _compress_state_dict(model.state_dict(), float16_codebooks=True)
 
     total_size_bits = 0
+    total_n_parameters = 0
 
     logging.debug("=== Computing model size ===")
 
     for module_name, module in compressed_dict.items():
         if "codes_matrix" in module_name:
-            # We will count codebook and codes at the same time.
+            code_type = module.dtype
+            n_bits_per_code = DTYPE_SIZE_MAP[code_type]
+
+            n_codes = module.numel()
+            code_size_bits = n_bits_per_code*n_codes
+            total_size_bits += code_size_bits
+            total_n_parameters += int(total_size_bits/32)
             continue
 
         # Batch norms, biases, and other elements can be counted according to their data type and number of parameters
         n_parameters = module.numel()
+        total_n_parameters += n_parameters
         parameters_type = module.dtype
         parameters_size = DTYPE_SIZE_MAP[module.dtype]
 
@@ -62,22 +70,22 @@ def compute_model_nbits(model: torch.nn.Module) -> int:
 
         total_size_bits += module_size_bits
 
-        if "codebook" in module_name:
-            # Add the corresponding codes matrix. We do this here because we need to know the codebook size to estimate
-            # the true minimum code size (independent of byte word length)
-            codes_param = module_name.replace("codebook", "codes_matrix")
-            if codes_param not in compressed_dict:
-                continue
-
-            codes = compressed_dict[codes_param]
-
-            # This is safe since our codebooks are powers of 2
-            n_bits_per_code = int(round(math.log(module.size(0), 2)))
-            n_codes = codes.numel()
-            module_size_bits = n_bits_per_code * n_codes
-
-            logging.debug(f"{codes_param} has {n_codes} codes and takes up {module_size_bits / 8} bytes")
-
-            total_size_bits += module_size_bits
+        # if "codebook" in module_name:
+        #     # Add the corresponding codes matrix. We do this here because we need to know the codebook size to estimate
+        #     # the true minimum code size (independent of byte word length)
+        #     codes_param = module_name.replace("codebook", "codes_matrix")
+        #     if codes_param not in compressed_dict:
+        #         continue
+        #
+        #     codes = compressed_dict[codes_param]
+        #
+        #     # This is safe since our codebooks are powers of 2
+        #     n_bits_per_code = int(round(math.log(module.size(0), 2)))
+        #     n_codes = codes.numel()
+        #     module_size_bits = n_bits_per_code * n_codes
+        #
+        #     logging.debug(f"{codes_param} has {n_codes} codes and takes up {module_size_bits / 8} bytes")
+        #
+        #     total_size_bits += module_size_bits
 
     return total_size_bits
