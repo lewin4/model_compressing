@@ -67,6 +67,10 @@ def bits_to_mb(bits: int) -> float:
     return bits / 8 / 1024 / 1024
 
 
+def bits_to_kb(bits: int) -> float:
+    return bits / 8 / 1024
+
+
 def log_compression_ratio(
     uncompressed_model_size_bits: int, compressed_model_size_bits: int, summary_writer: Optional[SummaryWriter] = None
 ) -> None:
@@ -79,11 +83,11 @@ def log_compression_ratio(
     """
     model_size_log = "\n" + "\n".join(
         [
-            f"uncompressed (bits): {uncompressed_model_size_bits}",
-            f"compressed (bits):   {compressed_model_size_bits}",
-            f"uncompressed (MB):   {bits_to_mb(uncompressed_model_size_bits):.2f}",
-            f"compressed (MB):     {bits_to_mb(compressed_model_size_bits):.2f}",
-            f"compression ratio:   {(uncompressed_model_size_bits / compressed_model_size_bits):.2f}",
+            f"uncompressed (bits):   {uncompressed_model_size_bits}",
+            f"compressed (bits):     {compressed_model_size_bits}",
+            f"uncompressed (MB/KB):  {bits_to_mb(uncompressed_model_size_bits):.2f}/{bits_to_kb(uncompressed_model_size_bits):.2f}",
+            f"compressed (MB/KB):    {bits_to_mb(compressed_model_size_bits):.2f}/{bits_to_kb(compressed_model_size_bits):.2f}",
+            f"compression ratio:     {(uncompressed_model_size_bits / compressed_model_size_bits):.2f}",
         ]
     )
     logging.info(model_size_log)

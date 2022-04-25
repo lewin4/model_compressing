@@ -26,6 +26,7 @@ from .utils.model_size import compute_model_nbits
 from .utils.models import get_uncompressed_model
 from .utils.state_dict_utils import load_state_dict
 from .dataloading.FI_loader import get_loaders
+from .utils.torchstat import stat
 
 
 def main():
@@ -51,7 +52,7 @@ def main():
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits)
 
     model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
-
+    stat(model.cpu(), (3,192,256))
     dataloader_config = config["dataloader"]
     # val_data_sampler, val_data_loader = load_imagenet_val(
     #     dataloader_config["imagenet_path"],
