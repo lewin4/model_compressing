@@ -50,8 +50,8 @@ def main():
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits)
     if config["model"].get("state_dict_compressed", None) is not None:
         model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
-    from utils.torchstat import stat
-    stat(model.cpu(), (3, 192, 256))
+    # from utils.torchstat import stat
+    # stat(model.cpu(), (3, 192, 256))
     dataloader_config = config["dataloader"]
     # val_data_sampler, val_data_loader = load_imagenet_val(
     #     dataloader_config["imagenet_path"],
@@ -63,28 +63,33 @@ def main():
 
     _, test_loader, _ = get_loaders(
         image_dir=dataloader_config["imagenet_path"],
-        batch_size=8,
+        batch_size=dataloader_config["batch_size"],
         img_shape=dataloader_config["image_shape"],
-        radio=[0.7, 0.2, 0.1],
+        radio=[0.2, 0.7, 0.1],
         **kwargs
     )
 
     def test_fps(start_epoch, epochs):
+        total_times = 0
         model.eval()
         print("{} epochs will be test.".format(epochs - start_epoch))
-        start_time = time.time()
         for epoch in range(start_epoch, epochs):
             print("{} epoch start......".format(epoch))
+            times = 0
             epoch_time = time.time()
             for data, target in test_loader:
                 data, target = data.cuda(), target.cuda()
+                start_time = time.time()
                 with torch.no_grad():
                     output = model(data)
-            print("{} epoch finish. time: {}".format(epoch, time.time() - epoch_time))
-        stop_time = time.time()
-        times = stop_time - start_time
+                stop_time = time.time()
+                times += (stop_time - start_time)
+            total_times += times
+            print("{} epoch finish. time: {}. Pure inference time: {}".format(epoch, time.time() - epoch_time, times))
+
         num = len(test_loader.dataset) * (epochs - start_epoch)
-        print("\nAll time: {}, \nImage num: {}, \nTime per image: {}".format(times, num, times/float(num)))
+        print(
+            "\nAll time: {}, \nImage num: {}, \nTime per image: {}".format(total_times, num, total_times / float(num)))
 
     def test(epoch):
         model.eval()
@@ -111,7 +116,8 @@ def main():
             100. * correct / len(test_loader.dataset)))
         return report
 
-    test(0)
+    # test(0)
+    test_fps(0, 120)
     # validator = ImagenetValidator(model, get_imagenet_criterion())
     # logger = ValidationLogger(1, None)
     # validate_one_epoch(0, val_data_loader, model, validator, logger, verbose)

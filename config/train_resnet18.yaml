@@ -3,7 +3,7 @@ dataloader:
 #  imagenet_path: D:\Code\data\cifar-100
   imagenet_path: E:\LY\data\classification_aug
   num_workers: 4
-  batch_size: 8
+  batch_size: 256
   image_shape: [192, 256]
   train_shuffle: True
   validation_shuffle: False
@@ -29,7 +29,7 @@ model:
   arch: custom
   model_path: E:\LY\network-slimming\newhao\0.8model_best.pth.tar
   resume:
-  state_dict_compressed: ../output/0.8-2multi/trained_models/best.pth
+#  state_dict_compressed: E:\LY\model_compressing\single\trained_models\best.pth
 
   compression_parameters:
     ignored_modules:
@@ -52,7 +52,7 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 2
+    n_multi_layer: 11
     multi_layer_specs:
       9:
         k: 256
