@@ -3,7 +3,7 @@ dataloader:
 #  imagenet_path: D:\Code\data\cifar-100
   imagenet_path: E:\LY\data\classification_aug
   num_workers: 4
-  batch_size: 4
+  batch_size: 256
   image_shape: [192, 256]
   train_shuffle: True
   validation_shuffle: False

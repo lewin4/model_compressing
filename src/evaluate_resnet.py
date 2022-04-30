@@ -26,7 +26,7 @@ from .utils.model_size import compute_model_nbits
 from .utils.models import get_uncompressed_model
 from .utils.state_dict_utils import load_state_dict
 from .dataloading.FI_loader import get_loaders
-from .utils.torchstat import stat
+# from .utils.torchstat import stat
 
 
 def main():
@@ -50,9 +50,10 @@ def main():
     model = compress_model(model, **compression_config).cuda()
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits)
-
-    model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
-    stat(model.cpu(), (3,192,256))
+    if config["model"].get("state_dict_compressed", None) is not None:
+        model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
+        print("Load state dict from {}.".format(config["model"]["state_dict_compressed"]))
+    # stat(model.cpu(), (3,192,256))
     dataloader_config = config["dataloader"]
     # val_data_sampler, val_data_loader = load_imagenet_val(
     #     dataloader_config["imagenet_path"],
@@ -62,34 +63,39 @@ def main():
     # )
     kwargs = {'num_workers': 4, 'pin_memory': True}
 
-    _, train_loader, _ = get_loaders(
+    _, test_loader, _ = get_loaders(
         image_dir=dataloader_config["imagenet_path"],
-        batch_size=8,
+        batch_size=dataloader_config["batch_size"],
         img_shape=dataloader_config["image_shape"],
-        radio=[0.7, 0.2, 0.1],
+        radio=[0.2, 0.7, 0.1],
         **kwargs
     )
 
-    validator = ImagenetValidator(model, get_imagenet_criterion())
-    logger = ValidationLogger(1, None)
-    validate_one_epoch(0, train_loader, model, validator, logger, verbose, torch.device("cuda"))
+    # validator = ImagenetValidator(model, get_imagenet_criterion())
+    # logger = ValidationLogger(1, None)
+    # validate_one_epoch(0, train_loader, model, validator, logger, verbose, torch.device("cuda"))
 
     def test_fps(start_epoch, epochs):
+        total_times = 0
         model.eval()
         print("{} epochs will be test.".format(epochs - start_epoch))
-        start_time = time.time()
         for epoch in range(start_epoch, epochs):
             print("{} epoch start......".format(epoch))
+            times = 0
             epoch_time = time.time()
-            for data, target in train_loader:
+            for data, target in test_loader:
                 data, target = data.cuda(), target.cuda()
+                start_time = time.time()
                 with torch.no_grad():
                     output = model(data)
-            print("{} epoch finish. time: {}".format(epoch, time.time() - epoch_time))
-        stop_time = time.time()
-        times = stop_time - start_time
-        num = len(train_loader.dataset) * (epochs - start_epoch)
-        print("\nAll time: {}, \nImage num: {}, \nTime per image: {}".format(times, num, times/float(num)))
+                stop_time = time.time()
+                times += (stop_time - start_time)
+            total_times += times
+            print("{} epoch finish. time: {}. Pure inference time: {}".format(epoch, time.time() - epoch_time, times))
+
+        num = len(test_loader.dataset) * (epochs - start_epoch)
+        print(
+            "\nAll time: {}, \nImage num: {}, \nTime per image: {}".format(total_times, num, total_times / float(num)))
 
     def test():
         model.eval()
@@ -97,7 +103,7 @@ def main():
         correct = 0
         pred_list = torch.Tensor()
         true_list = torch.Tensor()
-        for data, target in train_loader:
+        for data, target in test_loader:
             data, target = data.cuda(), target.long().cuda()
             with torch.no_grad():
                 output = model(data)
@@ -110,13 +116,14 @@ def main():
         report = classification_report(true_list, pred_list, labels=range(6), digits=4)
         print(report)
 
-        test_loss /= len(train_loader.dataset)
+        test_loss /= len(test_loader.dataset)
         print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'.format(
-            test_loss, correct, len(train_loader.dataset),
-            100. * correct / len(train_loader.dataset)))
+            test_loss, correct, len(test_loader.dataset),
+            100. * correct / len(test_loader.dataset)))
         return report
 
-    test()
+    # test()
+    test_fps(0, 120)
     # validator = ImagenetValidator(model, get_imagenet_criterion())
     # logger = ValidationLogger(1, None)
     # validate_one_epoch(0, val_data_loader, model, validator, logger, verbose)
