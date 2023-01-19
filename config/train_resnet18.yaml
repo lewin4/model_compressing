@@ -23,7 +23,7 @@ lr_scheduler:
 
 skip_initial_validation: True
 output_path: ../output/0.8-5multi
-
+use_cuda: False
 # model architecture
 model:
   arch: custom
@@ -52,7 +52,7 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 11
+    n_multi_layer: 20
     multi_layer_specs:
       9:
         k: 256

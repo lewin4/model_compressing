@@ -45,9 +45,13 @@ def main():
                                    num_classes=6
                                    ).cuda()
     uncompressed_model_size_bits = compute_model_nbits(model)
-    model = compress_model(model, **compression_config).cuda()
+    model = compress_model(model, **compression_config)
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits)
+    if config["use_cuda"]:
+        model.cuda()
+    else:
+        model.cpu()
     if config["model"].get("state_dict_compressed", None) is not None:
         model = load_state_dict(model, os.path.join(file_path, config["model"]["state_dict_compressed"]))
     # from utils.torchstat import stat
@@ -78,7 +82,8 @@ def main():
             times = 0
             epoch_time = time.time()
             for data, target in test_loader:
-                data, target = data.cuda(), target.cuda()
+                if config["use_cuda"]:
+                    data, target = data.cuda(), target.cuda()
                 start_time = time.time()
                 with torch.no_grad():
                     output = model(data)
