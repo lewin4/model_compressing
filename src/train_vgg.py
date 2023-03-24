@@ -13,29 +13,23 @@ import math
 import os
 from datetime import datetime
 import torch
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
 
-from .compression.model_compression import compress_model
-from .dataloading.FI_loader import get_loaders
-from .permutation.model_permutation import permute_model
-from .training.imagenet_utils import ImagenetTrainer, ImagenetValidator, get_imagenet_criterion
-from .training.lr_scheduler import get_learning_rate_scheduler
-from .training.optimizer import get_optimizer
-from .training.training import TrainingLogger, train_one_epoch
-from .training.validating import ValidationLogger, validate_one_epoch
-from .utils.config_loader import load_config
-from .utils.horovod_utils import initialize_horovod
-from .utils.logging import get_tensorboard_logger, log_compression_ratio, log_config, setup_pretty_logging
-from .utils.model_size import compute_model_nbits
-from .utils.models import get_uncompressed_model
-from .utils.state_dict_utils import save_state_dict_compressed, load_state_dict
-
-# fmt: off
-try:
-    import horovod.torch as hvd
-    HAVE_HOROVOD = True
-except ImportError:
-    HAVE_HOROVOD = False            #与多GPU训练有关
-# fmt: on
+from src.compression.model_compression import compress_model
+from src.dataloading.FI_loader import get_loaders
+from src.permutation.model_permutation import permute_model
+from src.training.imagenet_utils import ImagenetTrainer, ImagenetValidator, get_imagenet_criterion
+from src.training.lr_scheduler import get_learning_rate_scheduler
+from src.training.optimizer import get_optimizer
+from src.training.training import TrainingLogger, train_one_epoch
+from src.training.validating import ValidationLogger, validate_one_epoch
+from src.utils.config_loader import load_config
+from src.utils.horovod_utils import initialize_horovod
+from src.utils.logging import get_tensorboard_logger, log_compression_ratio, log_config, setup_pretty_logging
+from src.utils.model_size import compute_model_nbits
+from src.utils.models import get_uncompressed_model
+from src.utils.state_dict_utils import save_state_dict_compressed, load_state_dict
 
 
 _MODEL_OUTPUT_PATH_SUFFIX = "trained_models"
@@ -52,20 +46,22 @@ def main():
 
     # specify config file to use in case user does not pass in a --config argument
     file_path = os.path.dirname(__file__)
-    default_config = os.path.join(file_path, "../config/train_resnet18.yaml")
+    default_config = os.path.join(file_path, "../config/train_vgg.yaml")
     config = load_config(file_path, default_config_path=default_config)
+
     # summary_writer = None
-    if (HAVE_HOROVOD and hvd.rank == 0) or (not HAVE_HOROVOD):
-        summary_writer = get_tensorboard_logger(config["output_path"])
+    summary_writer = get_tensorboard_logger(config["output_path"])
     log_config(config, summary_writer)
 
     # Get the model, optimize its permutations, and compress it
     model_config = config["model"]
+    dataloader_config = config["dataloader"]
     compression_config = model_config["compression_parameters"]
     model = get_uncompressed_model(model_config["arch"],
                                    pretrained=False,
                                    path=model_config["model_path"],
-                                   num_classes=6).to(DEVICE)
+                                   dataset=dataloader_config["dataset"],
+                                   num_classes=dataloader_config["num_classes"]).to(DEVICE)
     # 从网站上下载别人提供的预训练模型
     # C:\Users\LiuYan\.cache\torch\hub\checkpoints，下载到这个位置了
 
@@ -82,31 +78,76 @@ def main():
 
     uncompressed_model_size_bits = compute_model_nbits(model)
     model = compress_model(model, **compression_config).to(DEVICE)
-
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits, summary_writer)
 
-    if HAVE_HOROVOD:
-        hvd.broadcast_parameters(model.state_dict(), root_rank=0)
-
     # Create training and validation dataloaders
-    dataloader_config = config["dataloader"]
-    # val_data_sampler, val_data_loader = load_imagenet_val(
-    #     dataloader_config["imagenet_path"],
-    #     dataloader_config["num_workers"],
-    #     dataloader_config["batch_size"],
-    #     shuffle=dataloader_config["validation_shuffle"],
-    # )
-    # train_sampler, train_data_loader = load_imagenet_train(
-    #     dataloader_config["imagenet_path"],
-    #     dataloader_config["num_workers"],
-    #     dataloader_config["batch_size"],
-    #     shuffle=dataloader_config["train_shuffle"],
-    # )
-    train_data_loader, val_data_loader, _ = get_loaders(dataloader_config["imagenet_path"],
-                                                        dataloader_config["batch_size"],
-                                                        dataloader_config["image_shape"],
-                                                        num_workers=dataloader_config["num_workers"])
+
+    if dataloader_config["dataset"] == 'cifar10':
+        train_data_loader = DataLoader(
+            datasets.CIFAR10(dataloader_config["root"], train=True, download=True,
+                             transform=transforms.Compose([
+                                 transforms.Pad(4),
+                                 transforms.RandomCrop(32),
+                                 transforms.RandomHorizontalFlip(),
+                                 transforms.ToTensor(),
+                                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                             ])),
+            batch_size=dataloader_config["batch_size"],
+            num_workers=dataloader_config["num_workers"],
+            pin_memory=True,
+            shuffle=True)
+        val_data_loader = DataLoader(
+            datasets.CIFAR10(dataloader_config["root"], train=False, transform=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            ])),
+            batch_size=dataloader_config["test_batch_size"],
+            num_workers=dataloader_config["num_workers"],
+            pin_memory=True,
+            shuffle=True)
+
+    elif dataloader_config["dataset"] == 'sewage':
+        train_data_loader, val_data_loader, _ = get_loaders(
+            dataloader_config["imagenet_path"],
+            dataloader_config["batch_size"],
+            dataloader_config["image_shape"],
+            num_workers=dataloader_config["num_workers"])
+
+    elif dataloader_config["dataset"] == "miniimagenet":
+        from MLclf import MLclf
+        # Download the original mini-imagenet data:
+        # only need to run this line before you download the mini-imagenet dataset for the first time.
+        MLclf.miniimagenet_download(Download=True)
+        # Transform the original data into the format that fits the task for classification:
+        transform = transforms.Compose(
+            [transforms.RandomHorizontalFlip(),
+             transforms.ToTensor(),
+             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        train_dataset, validation_dataset, test_dataset = MLclf.miniimagenet_clf_dataset(
+            ratio_train=0.6, ratio_val=0.2,
+            seed_value=None, shuffle=True,
+            transform=transform,
+            save_clf_data=True)
+
+        # The dataset can be transformed to dataloader via torch:
+        train_data_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=dataloader_config["batch_size"],
+            shuffle=True,
+            pin_memory=True,
+            num_workers=dataloader_config["num_workers"]
+        )
+        val_data_loader = DataLoader(
+            dataset=validation_dataset,
+            batch_size=dataloader_config["test_batch_size"],
+            shuffle=True,
+            pin_memory=True,
+            num_workers=dataloader_config["num_workers"]
+        )
+    else:
+        raise ValueError("No valid dataset is given.")
 
     # Get imagenet optimizer, criterion, trainer and validator
     optimizer = get_optimizer(model, config)

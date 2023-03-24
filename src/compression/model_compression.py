@@ -118,7 +118,7 @@ def get_code_and_codebook(
         reshaped_layers_weight: 这是一个有序字典，键-每个卷积层的在整个模型中的名字，值-(整形后的层权重
         值，在上一层中的序号(假如上一层是一个有序module的话))
         k: 码本的长度或者说是大小
-        kmeans_n_iters: 量化次数
+        kmeans_n_iters: 聚类轮数
     Returns:
         一个字典，键-卷积核大小，值-(生成的码本, (每个卷积层的在整个模型中的名字, 生成的该层的编码))
     """
@@ -148,7 +148,6 @@ def get_code_and_codebook(
         weight_groups[size][-1][0] = torch.cat((weight_groups[size][-1][0], reshaped_weight), 0)
         weight_groups[size][-1][1].append([name, id, parent, size_code, int(size_code/content[3]), content[5]])
 
-
     group_codebook_and_codes = {"codebook": {}, "layer_code": []}
     for size, contents in weight_groups.items():
 
@@ -156,8 +155,14 @@ def get_code_and_codebook(
             training_set = content[0]
             kmeans_fn = get_kmeans_fn(multi_layer_specs[size].get("k_means_type"))
             k = multi_layer_specs[size].get("k")
-            kmeans_n_iters = multi_layer_specs[size].get("k_means_n_iters")
-            codebook, codes = kmeans_fn(training_set, k=k, n_iters=kmeans_n_iters)
+            # 如果码本训练集长度小于设定的码本长度，直接将码本训练集当作码本
+            if len(training_set) <= k:
+                codebook = training_set
+                codes = torch.IntTensor(list(range(len(training_set)))). \
+                    to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            else:
+                kmeans_n_iters = multi_layer_specs[size].get("k_means_n_iters")
+                codebook, codes = kmeans_fn(training_set, k=k, n_iters=kmeans_n_iters)
             # del training_set
             last = 0
             for j, layer in enumerate(content[1]):
