@@ -12,7 +12,7 @@ dataloader:
   validation_shuffle: False
 
 # training hyperparams
-epochs: 120
+epochs: 150
 learning_rate: 0.01
 momentum: 0.9
 weight_decay: 0.0001 # 1e-4
@@ -25,12 +25,12 @@ lr_scheduler:
   min_lr: 1.e-7
 
 skip_initial_validation: False
-output_path: ../vgg_cifar10_output/0.8-2multi
+output_path: ../vgg_cifar10_output/0.6-2multi
 use_cuda: True
 # model architecture
 model:
   arch: vgg19
-  model_path: E:\LY\network-slimming\logs\vgg16_cifar10_output\refine\0.8_0.9091\model_best.pth.tar
+  model_path: E:\LY\network-slimming\logs\vgg16_cifar10_output\refine\0.6_0.9125\model_best.pth.tar
   resume:
 #  state_dict_compressed: E:\LY\model_compressing\single\trained_models\best.pth
 

@@ -50,7 +50,7 @@ class AbstractCompressedLayer(ABC, nn.Module):
         pass
 
     @abstractmethod
-    def forward(self):
+    def forward(self, *args, **kwargs):
         """Does a forward pass as a torch.nn.Module"""
         pass
 
