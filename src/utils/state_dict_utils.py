@@ -37,7 +37,7 @@ def _compress_state_dict(original_state_dict: Dict, float16_codebooks: bool = Tr
     """
     compressed_dict = {}
 
-    batchnorm_layers = [k.strip(".running_mean") for k in original_state_dict.keys() if "running_mean" in k]
+    batchnorm_layers = [k.strip("running_mean") for k in original_state_dict.keys() if "running_mean" in k]
 
     for key, value in original_state_dict.items():
         if "running_var" in key:
@@ -113,7 +113,7 @@ def _load_compressed_dict(model: torch.nn.Module, state_dict: Dict) -> None:
 
     # Verify that the only missing keys are the batchnorm keys
     BNORM_ONLY_KEYS = ["running_mean", "running_var", "num_batches_tracked"]
-
+    extre_key = all_keys - given_keys
     assert given_keys.issubset(all_keys)
     assert all(any(batchnorm_key in k for batchnorm_key in BNORM_ONLY_KEYS) for k in (all_keys - given_keys))
 

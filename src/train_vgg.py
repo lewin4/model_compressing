@@ -15,6 +15,8 @@ from datetime import datetime
 import torch
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
+from sklearn.metrics import classification_report
+import torch.nn.functional as F
 
 from src.compression.model_compression import compress_model
 from src.dataloading.FI_loader import get_loaders
@@ -36,6 +38,32 @@ _MODEL_OUTPUT_PATH_SUFFIX = "trained_models"
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def test(model, test_loader):
+    model.eval().to(DEVICE)
+    test_loss = 0
+    correct = 0
+    pred_list = torch.Tensor()
+    true_list = torch.Tensor()
+    for data, target in test_loader:
+        data, target = data.to(DEVICE), target.long().to(DEVICE)
+        with torch.no_grad():
+            output = model(data)
+            test_loss += F.cross_entropy(output, target, size_average=False).item()  # sum up batch loss
+        pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
+        pred_list = torch.cat((pred_list, pred.squeeze().cpu()), 0)
+        true_list = torch.cat((true_list, target.cpu()), 0)
+        correct += pred.eq(target.data.view_as(pred)).cpu().sum()  # get target have the same shape of pred
+
+    report = classification_report(true_list, pred_list, labels=range(10), digits=4)
+    print(report)
+
+    test_loss /= len(test_loader.dataset)
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'.format(
+        test_loss, correct, len(test_loader.dataset),
+        100. * correct / len(test_loader.dataset)))
+    return report
 
 
 def main():
@@ -169,6 +197,8 @@ def main():
 
     if not config.get("skip_initial_validation", False):
         last_acc = validate_one_epoch(0, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
+        report = test(model, val_data_loader)
+        print(report)
         best_acc = last_acc
         best_acc_epoch = 0
 
@@ -201,6 +231,8 @@ def main():
             save_state_dict_compressed(
                 model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
             )
+            report = test(model, val_data_loader)
+            print(report)
             best_acc = last_acc
             best_acc_epoch = epoch
 

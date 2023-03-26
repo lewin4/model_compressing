@@ -108,6 +108,10 @@ def get_uncompressed_model(
         model = vgg(**kwargs)
     elif arch == "googlenet":
         assert "num_classes" in kwargs.keys() and "aux_logits" in kwargs.keys()
+        if path is not None:
+            checkpoint = torch.load(path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            cfg = checkpoint.get("cfg", None)
+            kwargs["cfg"] = cfg
         model = GoogLeNet(**kwargs)
     else:
         raise ValueError(f"Unknown model arch: {arch}")

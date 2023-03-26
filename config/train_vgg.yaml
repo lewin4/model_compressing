@@ -25,14 +25,14 @@ lr_scheduler:
   min_lr: 1.e-7
 
 skip_initial_validation: False
-output_path: ../vgg_cifar10_output/0.6-2multi
+output_path: ../vgg_cifar10_output/0.2-5multi
 use_cuda: True
 # model architecture
 model:
   arch: vgg19
-  model_path: E:\LY\network-slimming\logs\vgg16_cifar10_output\refine\0.6_0.9125\model_best.pth.tar
+  model_path: E:\LY\network-slimming\logs\vgg16_cifar10_output\refine\0.2_0.9015\model_best.pth.tar
   resume:
-#  state_dict_compressed: E:\LY\model_compressing\single\trained_models\best.pth
+  state_dict_compressed: E:\LY\model_compressing\vgg_cifar10_output\0.2-5multi\trained_models\best.pth
 
   compression_parameters:
     ignored_modules:
@@ -55,7 +55,7 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 2
+    n_multi_layer: 5
     multi_layer_specs:
       9:
         k: 256
