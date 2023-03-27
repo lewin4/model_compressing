@@ -22,7 +22,13 @@ from .AbstractCompressedLayer import AbstractCompressedLayer
 class CompressedLinear(AbstractCompressedLayer):
     """Compressed representation of a linear layer"""
 
-    def __init__(self, codes_matrix: torch.Tensor, codebook: torch.Tensor, bias: Optional[torch.Tensor] = None):
+    def __init__(
+            self,
+            codes_matrix: torch.Tensor,
+            codebook: torch.Tensor,
+            redundancy: torch.Tensor,
+            c_out,
+            bias: Optional[torch.Tensor] = None):
         super(CompressedLinear, self).__init__()
 
         self.initialize_codes(codes_matrix, codebook)
@@ -32,10 +38,12 @@ class CompressedLinear(AbstractCompressedLayer):
         else:
             self.bias = None
 
-        self.codebook = nn.Parameter(codebook)
+        self.codebook = codebook
+        self.redundancy = nn.Parameter(redundancy)
+        self.c_out = c_out
 
     def _get_uncompressed_weight(self):
-        return decode(self.codes_matrix, self.codebook).float()
+        return decode(self.codes_matrix, self.codebook, self.redundancy, self.c_out).float()
 
     def forward(self, x):
         return F.linear(input=x, weight=self._get_uncompressed_weight(), bias=self.bias)

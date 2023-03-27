@@ -63,7 +63,11 @@ def get_num_centroids(n_blocks_per_row: int, n_output_channels: int, k: int) -> 
     return min(k, stability_centroids)
 
 
-def decode(codes_matrix: torch.Tensor, codebook: torch.Tensor) -> torch.Tensor:
+def decode(
+        codes_matrix: torch.Tensor,
+        codebook: torch.Tensor,
+        redunancy: torch.Tensor,
+        num_output_rows: int) -> torch.Tensor:
     """Given the codes and codebook, get the uncompressed weight matrix
 
     Parameters:
@@ -72,9 +76,10 @@ def decode(codes_matrix: torch.Tensor, codebook: torch.Tensor) -> torch.Tensor:
     Returns:
         weight: n-by-md decoded matrix
     """
-    num_output_rows = codes_matrix.size(0)
+    # num_output_rows = codes_matrix.size(0)
 
     one_dimensional_codes = codes_matrix.reshape(1, -1).squeeze().long()
-    one_dimensional_output = torch.index_select(codebook, dim=0, index=one_dimensional_codes)
+    one_dimensional_output = torch.index_select(codebook, dim=0, index=one_dimensional_codes).reshape(-1)
+    one_dimensional_output = torch.cat((one_dimensional_output, redunancy), 0).reshape(-1, codebook.shape[1])
 
     return one_dimensional_output.reshape(num_output_rows, -1)

@@ -7,7 +7,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -26,8 +26,10 @@ class CompressedConv2d(AbstractCompressedLayer):
         self,
         codes_matrix: torch.Tensor,
         codebook: torch.Tensor,
+        redundancy: torch.Tensor,
         kernel_height: int,
         kernel_width: int,
+        c_out: int,
         bias: Optional[torch.Tensor] = None,
         stride: int = 1,
         padding: int = 0,
@@ -38,10 +40,10 @@ class CompressedConv2d(AbstractCompressedLayer):
         super(CompressedConv2d, self).__init__()
 
         self.initialize_codes(codes_matrix, codebook)
-
+        self.redundancy = nn.Parameter(redundancy, requires_grad=True)
         self.kernel_height = kernel_height
         self.kernel_width = kernel_width
-
+        self.c_out = c_out
         self.stride = stride
         self.padding = padding
         self.dilation = dilation
@@ -57,9 +59,9 @@ class CompressedConv2d(AbstractCompressedLayer):
 
     def _get_uncompressed_weight(self, code_book=None):
         if code_book is None:
-            decoded_weights = decode(self.codes_matrix, self.codebook).float()
+            decoded_weights = decode(self.codes_matrix, self.codebook, self.redundancy, self.c_out).float()
         else:
-            decoded_weights = decode(self.codes_matrix, code_book[self.name_of_codebook])
+            decoded_weights = decode(self.codes_matrix, code_book[self.name_of_codebook], self.redundancy, self.c_out)
         c_out = decoded_weights.size(0)
         return decoded_weights.reshape(c_out, -1, self.kernel_height, self.kernel_width)
 

@@ -25,22 +25,22 @@ lr_scheduler:
   min_lr: 1.e-7
 
 skip_initial_validation: False
-output_path: ../vgg_cifar10_output/0.2-2multi
+output_path: ../googlenet_cifar10_output/0.8-2multi
 use_cuda: True
 # model architecture
 model:
-  arch: vgg19
-  model_path: E:\LY\network-slimming\logs\vgg16_cifar10_output\refine\0.2_0.9015\model_best.pth.tar
+  arch: googlenet
+  model_path: E:\LY\network-slimming\logs\googlenet_cifar10_output\refine\0.8_0.8568\model_best.pth.tar
   resume:
-  state_dict_compressed: E:\LY\model_compressing\vgg_cifar10_output\0.2-2multi\trained_models\best.pth
+  state_dict_compressed:
+  aux_logits: True
 
   compression_parameters:
     ignored_modules:
       # list of layer names that you do not want to compress.
       # We follow Stock et al. "And the bit goes down: revisiting the quantization of deep neural networks", ICLR 2020
       # and do not compress the first 7x7 convolutional layer, as it represents only 0.1-0.05% of the network weights
-      - feature.0
-      - classifier
+      - conv1.conv
 
     k: 256
     fc_subvector_size: 4 # d_fc
@@ -62,6 +62,10 @@ model:
         k_means_type: src
         k_means_n_iters: 100
       4:
+        k: 256
+        k_means_type: src
+        k_means_n_iters: 100
+      fc:
         k: 256
         k_means_type: src
         k_means_n_iters: 100

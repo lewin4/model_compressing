@@ -37,7 +37,7 @@ def _compress_state_dict(original_state_dict: Dict, float16_codebooks: bool = Tr
     """
     compressed_dict = {}
 
-    batchnorm_layers = [k.strip("running_mean") for k in original_state_dict.keys() if "running_mean" in k]
+    batchnorm_layers = [k.strip(".running_mean") for k in original_state_dict.keys() if "running_mean" in k]
 
     for key, value in original_state_dict.items():
         if "running_var" in key:

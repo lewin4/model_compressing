@@ -7,11 +7,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Dict, List, NewType, Optional, Set, Union
+from typing import Callable, Dict, List, NewType, Optional, Set, Union, Tuple
 from collections import OrderedDict
 import torch
 
 from ..compressed_layers.CompressedConv2d import CompressedConv2d
+from .. compressed_layers.CompressedLinear import CompressedLinear
 from ..compressed_layers.CompressedConvTranspose2d import CompressedConvTranspose2d
 from ..compressed_layers.CompressedLinear import CompressedLinear
 from ..compressed_layers.AbstractCompressedLayer import AbstractCompressedLayer
@@ -134,11 +135,14 @@ def get_code_and_codebook(
 
     weight_groups = {}
     for i, (name, content) in enumerate(reshaped_layers_weight.items()):
-        reshaped_weight = content[0]
+        reshaped_weight = content[0][0]
         id = content[1]
         parent = content[2]
         assert len(reshaped_weight.shape) == 2
         size_code, size = reshaped_weight.size()
+        if size == 4:
+            if isinstance(content[5], torch.nn.Linear):
+                size = "fc"
 
         if size not in weight_groups:
             weight_groups[size] = [[torch.Tensor().to(reshaped_weight.device), []]]
@@ -146,11 +150,16 @@ def get_code_and_codebook(
             weight_groups[size].append([torch.Tensor().to(reshaped_weight.device), []])
 
         weight_groups[size][-1][0] = torch.cat((weight_groups[size][-1][0], reshaped_weight), 0)
-        weight_groups[size][-1][1].append([name, id, parent, size_code, int(size_code/content[3]), content[5]])
+        weight_groups[size][-1][1].append([
+            name, id, parent,
+            size_code,                      # 训练集长度/生成编码总个数
+            int(size_code/content[3]),      # 生成编码的宽度， 高度是输出通道数
+            content[5],                     # 层本体
+            content[0][1]])                 # 冗余权重
 
     group_codebook_and_codes = {"codebook": {}, "layer_code": []}
-    for size, contents in weight_groups.items():
 
+    for size, contents in weight_groups.items():
         for i, content in enumerate(contents):
             training_set = content[0]
             kmeans_fn = get_kmeans_fn(multi_layer_specs[size].get("k_means_type"))
@@ -167,7 +176,7 @@ def get_code_and_codebook(
             last = 0
             for j, layer in enumerate(content[1]):
                 currnt_code = codes[last:last+layer[3]]
-                currnt_code = currnt_code.view(-1, layer[4])
+                # currnt_code = currnt_code.view_(-1, layer[4])
                 layer.append(currnt_code)
                 layer.append("codebook_size"+str(size)+"_"+str(i))
                 last = layer[3]
@@ -176,30 +185,54 @@ def get_code_and_codebook(
             group_codebook_and_codes["layer_code"] = group_codebook_and_codes["layer_code"] + content[1]
     return group_codebook_and_codes
 
+
 def get_reshapeed_weight(
-        conv: torch.nn.Conv2d,
+        module: Union[torch.nn.Conv2d, torch.nn.Linear],
         large_subvectors: bool,
         pw_subvector_size: int,
-) -> torch.Tensor:
-    weight = conv.weight.detach()
+        fc_subvector_size: int
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    weight = module.weight.detach()
 
-    c_out, c_in, kernel_width, kernel_height = weight.size()
-    reshaped_weight = weight.reshape(c_out, -1).detach()
+    if isinstance(module, torch.nn.Conv2d):
+        c_out, c_in, kernel_width, kernel_height = weight.size()
 
-    # For 1x1 convs, this is always 1
-    subvector_size = kernel_height * kernel_width
-    is_pointwise_convolution = subvector_size == 1
+        # For 1x1 convs, this is always 1
+        subvector_size = kernel_height * kernel_width
+        is_pointwise_convolution = subvector_size == 1
 
-    # Determine subvector_size
-    if is_pointwise_convolution:
-        subvector_size = pw_subvector_size
-    if large_subvectors and not is_pointwise_convolution:
-        subvector_size *= 2
+        # Determine subvector_size
+        if is_pointwise_convolution:
+            subvector_size = pw_subvector_size
+        if large_subvectors and not is_pointwise_convolution:
+            subvector_size *= 2
 
-    assert (c_in * kernel_height * kernel_width) % subvector_size == 0
+        redundancy = c_in * c_out * kernel_width * kernel_height % subvector_size
+        if redundancy == 0:
+            redundancy_weight = weight.reshape(-1)[:((-1) * redundancy)].detach()
+            reshaped_weight = weight.reshape(-1)[((-1) * redundancy):].detach()
+        else:
+            reshaped_weight = weight.reshape(-1)[:((-1) * redundancy)].detach()
+            redundancy_weight = weight.reshape(-1)[((-1) * redundancy):].detach()
+        reshaped_weight = reshaped_weight.reshape(-1, subvector_size)
 
-    training_set = reshaped_weight.reshape(-1, subvector_size)
+    else:
+        c_out, c_in = weight.size()
+        subvector_size = fc_subvector_size
+
+        redundancy = c_in*c_out % subvector_size
+        if redundancy == 0:
+            redundancy_weight = weight.reshape(-1)[:((-1) * redundancy)].detach()
+            reshaped_weight = weight.reshape(-1)[((-1) * redundancy):].detach()
+        else:
+            reshaped_weight = weight.reshape(-1)[:((-1)*redundancy)].detach()
+            redundancy_weight = weight.reshape(-1)[((-1)*redundancy):].detach()
+        reshaped_weight = reshaped_weight.reshape(-1, subvector_size)
+
+    training_set = (reshaped_weight, redundancy_weight)
+
     return training_set
+
 
 def replace_layer_of_model(
         model: torch.nn.Module,
@@ -262,12 +295,16 @@ def compress_model(
     ):
         reshaped_layers_weight = OrderedDict()
         global layer_list
+        # layer_list: 0:parent, 1:model, 2:id_in_parent, 3:model name
         for name, content in layer_list.items():
             parent = content[0]
             layer = content[1]
-            c_out, c_in,  kernel_width, kernel_height = layer.weight.shape
             id_in_parent = content[2]
-            reshaped_weight = get_reshapeed_weight(layer, large_subvectors, pw_subvector_size)
+            if isinstance(layer, torch.nn.Conv2d):
+                c_out, c_in,  kernel_width, kernel_height = layer.weight.shape
+            else:
+                c_out, c_in = layer.weight.shape
+            reshaped_weight = get_reshapeed_weight(layer, large_subvectors, pw_subvector_size, fc_subvector_size)
             reshaped_layers_weight[name] = (reshaped_weight, id_in_parent, parent, c_out, c_in, layer)
         # del layer_list
         group_codebook_and_codes = get_code_and_codebook(reshaped_layers_weight, multi_layer_specs, n_multi_layer)
@@ -275,19 +312,33 @@ def compress_model(
         layer_code = group_codebook_and_codes["layer_code"]
         for layer in layer_code:
             uncompressed_layer = layer[5]
-            c_out, c_in, kernel_width, kernel_height = uncompressed_layer.weight.size()
-            compressed_child = CompressedConv2d(
-                layer[-2],
-                codebook[layer[-1]],
-                kernel_height,
-                kernel_width,
-                uncompressed_layer.bias,
-                uncompressed_layer.stride,
-                uncompressed_layer.padding,
-                uncompressed_layer.dilation,
-                uncompressed_layer.groups,
-                layer[7]
-            )
+            if isinstance(uncompressed_layer, torch.nn.Conv2d):
+                c_out, c_in, kernel_width, kernel_height = uncompressed_layer.weight.size()
+                compressed_child = CompressedConv2d(
+                    layer[-2],
+                    codebook[layer[-1]],
+                    layer[-3],
+                    kernel_height,
+                    kernel_width,
+                    c_out,
+                    uncompressed_layer.bias,
+                    uncompressed_layer.stride,
+                    uncompressed_layer.padding,
+                    uncompressed_layer.dilation,
+                    uncompressed_layer.groups,
+                    layer[-1]
+                )
+            elif isinstance(uncompressed_layer, torch.nn.Linear):
+                c_out, c_in = uncompressed_layer.weight.size()
+                compressed_child = CompressedLinear(
+                    layer[-2],
+                    codebook[layer[-1]],
+                    layer[-3],
+                    c_out,
+                    uncompressed_layer.bias
+                )
+            else:
+                raise Exception
             idx = layer[1]
             replace_layer_of_model(model, compressed_child, layer[0], idx)
 
@@ -334,10 +385,10 @@ def compress_model(
             return True
 
         elif isinstance(child, torch.nn.Linear):
-            compressed_child = CompressedLinear.from_uncompressed(
-                child, _k, _kmeans_n_iters, _kmeans_fn, _fc_subvector_size, name=prefixed_child_name
-            )
-            _replace_child(parent, name, compressed_child, idx)
+            # compressed_child = CompressedLinear.from_uncompressed(
+            #     child, _k, _kmeans_n_iters, _kmeans_fn, _fc_subvector_size, name=prefixed_child_name
+            # )
+            # _replace_child(parent, name, compressed_child, idx)
             return True
 
         else:

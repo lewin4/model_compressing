@@ -54,10 +54,8 @@ def main():
     compressed_model_size_bits = compute_model_nbits(model)
     log_compression_ratio(uncompressed_model_size_bits, compressed_model_size_bits)
 
-    save_state_dict_compressed(model, "./best_best.pth")
-
-    if config["model"].get("state_dict_compressed", None) is not None:
-        model = load_state_dict(model, config["model"]["state_dict_compressed"])
+    if model_config.get("state_dict_compressed", None) is not None:
+        model = load_state_dict(model, model_config.get("state_dict_compressed"))
 
     # Create training and validation dataloaders
     if dataloader_config["dataset"] == 'cifar10':

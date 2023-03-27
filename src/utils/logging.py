@@ -56,7 +56,7 @@ def log_config(config: Dict, summary_writer: Optional[SummaryWriter]) -> None:
         config: Config dict that specifies the network, compression, hyperparams etc.
         summary_writer: Tensorboard writer
     """
-    logging.info(json.dumps(config, indent=4, sort_keys=True))
+    logging.info(json.dumps(config, indent=4, sort_keys=False))
 
     if summary_writer is not None:
         summary_writer.add_text("config", yaml.dump(config, default_flow_style=False).replace("\n", "  \n"))
