@@ -171,7 +171,7 @@ def main():
 
     # Get imagenet optimizer, criterion, trainer and validator
     optimizer = get_optimizer(model, config)
-    criterion = get_imagenet_criterion()
+    criterion = get_imagenet_criterion(model_config["arch"])
     n_epochs = config["epochs"]
     assert n_epochs > 0
     n_batch_size = len(train_data_loader)

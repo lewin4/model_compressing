@@ -20,6 +20,7 @@ from .AbstractDataHandler import AbstractDataHandler
 from .AbstractDataLogger import AbstractDataLogger
 from .lr_scheduler import LR_Scheduler
 from .training_types import FinalSummary, IntermediateSummary, TQDMState, Summary
+from ..utils.models.googlenet import GoogLeNet
 
 
 class ModelTrainer(AbstractDataHandler):
@@ -46,6 +47,8 @@ class ModelTrainer(AbstractDataHandler):
 
         self.optimizer.zero_grad()
         outputs, loss = self.pass_to_model(inputs, targets)
+        if isinstance(self.model, GoogLeNet):
+            outputs = outputs[0]
         self.update_state(targets, outputs, loss)
 
         loss.backward()

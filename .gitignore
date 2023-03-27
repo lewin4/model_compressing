@@ -2,3 +2,4 @@
 resnet18_sewage_output/
 single/
 vgg_cifar10_output/
+googlenet_cifar10_output/

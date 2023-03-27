@@ -11,6 +11,7 @@ from typing import Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from .training import ModelTrainer
 from .training_types import FinalSummary, TQDMState, Summary
@@ -228,9 +229,9 @@ class ImagenetValidator(ModelValidator):
         # targets = data[1].cuda(non_blocking=True)
         inputs = data[0].to(device,non_blocking=True)
         targets = data[1].long().to(device,non_blocking=True)
-
-        outputs = self._model(inputs)
-        loss = self._criterion(outputs, targets)
+        with torch.no_grad():
+            outputs = self._model(inputs)
+            loss = self._criterion(outputs, targets)
 
         self._accumulator.accumulate(outputs, targets, loss)
 
@@ -289,6 +290,20 @@ class ImagenetTrainer(ModelTrainer):
                                      }))
 
 
+class GoogleNet_Loss(nn.Module):
+    def __init__(self):
+        super(GoogleNet_Loss, self).__init__()
+
+    def forward(self, output, target):
+        if isinstance(output, torch.Tensor):
+            loss = F.cross_entropy(output, target)
+        else:
+            loss0 = F.cross_entropy(output[0], target)
+            loss1 = F.cross_entropy(output[1], target)
+            loss2 = F.cross_entropy(output[2], target)
+            loss = 0.6 * loss0 + 0.2 * loss1 + 0.2 * loss2
+        return loss
+
 # Dice损失函数
 class DiceLoss(nn.Module):
     def __init__(self):
@@ -309,7 +324,9 @@ class DiceLoss(nn.Module):
         return score
 
 
-def get_imagenet_criterion():
+def get_imagenet_criterion(arch: str = None):
     """Gets the typical training loss for Imagenet classification"""
+    if arch == "googlenet":
+        return GoogleNet_Loss()
     return torch.nn.CrossEntropyLoss()
     # return DiceLoss()

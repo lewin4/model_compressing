@@ -80,6 +80,6 @@ def decode(
 
     one_dimensional_codes = codes_matrix.reshape(1, -1).squeeze().long()
     one_dimensional_output = torch.index_select(codebook, dim=0, index=one_dimensional_codes).reshape(-1)
-    one_dimensional_output = torch.cat((one_dimensional_output, redunancy), 0).reshape(-1, codebook.shape[1])
+    one_dimensional_output = torch.cat((one_dimensional_output, redunancy), 0)
 
     return one_dimensional_output.reshape(num_output_rows, -1)
