@@ -16,7 +16,7 @@ International Conference on Learning Representations (ICLR) 2020.
 """
 
 import math
-from typing import Callable
+from typing import Callable, Optional
 
 import torch
 
@@ -66,8 +66,8 @@ def get_num_centroids(n_blocks_per_row: int, n_output_channels: int, k: int) -> 
 def decode(
         codes_matrix: torch.Tensor,
         codebook: torch.Tensor,
-        redunancy: torch.Tensor,
-        num_output_rows: int) -> torch.Tensor:
+        num_output_rows: int,
+        redunancy: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Given the codes and codebook, get the uncompressed weight matrix
 
     Parameters:
@@ -80,6 +80,7 @@ def decode(
 
     one_dimensional_codes = codes_matrix.reshape(1, -1).squeeze().long()
     one_dimensional_output = torch.index_select(codebook, dim=0, index=one_dimensional_codes).reshape(-1)
-    one_dimensional_output = torch.cat((one_dimensional_output, redunancy), 0)
+    if redunancy is not None:
+        one_dimensional_output = torch.cat((one_dimensional_output, redunancy), 0)
 
     return one_dimensional_output.reshape(num_output_rows, -1)

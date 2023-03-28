@@ -108,7 +108,8 @@ def _load_compressed_dict(model: torch.nn.Module, state_dict: Dict) -> None:
         model: Network for which we are loading the compressed dict
         state_dict: State dictionary for the network
     """
-    all_keys = set(model.state_dict().keys())
+    model_state_dict = model.state_dict()
+    all_keys = set(model_state_dict)
     given_keys = set(state_dict.keys())
 
     # Verify that the only missing keys are the batchnorm keys
@@ -118,6 +119,11 @@ def _load_compressed_dict(model: torch.nn.Module, state_dict: Dict) -> None:
     assert all(any(batchnorm_key in k for batchnorm_key in BNORM_ONLY_KEYS) for k in (all_keys - given_keys))
 
     # We need strict=False for the missing batchnorm mean and variance
+    for key, value in state_dict.items():
+        if "codes_matrix" in key:
+            if not value.shape == model_state_dict[key].shape:
+                state_dict[key] = value.reshape_as(model_state_dict[key])
+
     model.load_state_dict(state_dict, strict=False)
 
     def is_batchnorm_layer(mod: torch.nn.Module) -> bool:

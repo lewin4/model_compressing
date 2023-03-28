@@ -25,7 +25,7 @@ lr_scheduler:
   min_lr: 1.e-7
 
 skip_initial_validation: True
-output_path: ../googlenet_cifar10_output/0.8-3multi
+output_path: ../googlenet_cifar10_output/0.8-2multi
 use_cuda: True
 # model architecture
 model:
@@ -55,7 +55,7 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 3
+    n_multi_layer: 2
     multi_layer_specs:
       9:
         k: 256

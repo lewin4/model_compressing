@@ -39,11 +39,14 @@ class CompressedLinear(AbstractCompressedLayer):
             self.bias = None
 
         self.codebook = codebook
-        self.redundancy = nn.Parameter(redundancy)
+        if not (len(redundancy.shape) == 1 and redundancy.shape[0] == 0):
+            self.redundancy = nn.Parameter(redundancy, requires_grad=True)
+        else:
+            self.redundancy = None
         self.c_out = c_out
 
     def _get_uncompressed_weight(self):
-        return decode(self.codes_matrix, self.codebook, self.redundancy, self.c_out).float()
+        return decode(self.codes_matrix, self.codebook, self.c_out, self.redundancy).float()
 
     def forward(self, x):
         return F.linear(input=x, weight=self._get_uncompressed_weight(), bias=self.bias)

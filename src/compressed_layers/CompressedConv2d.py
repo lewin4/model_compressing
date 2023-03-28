@@ -40,7 +40,10 @@ class CompressedConv2d(AbstractCompressedLayer):
         super(CompressedConv2d, self).__init__()
 
         self.initialize_codes(codes_matrix, codebook)
-        self.redundancy = nn.Parameter(redundancy, requires_grad=True)
+        if not (len(redundancy.shape) == 1 and redundancy.shape[0] == 0):
+            self.redundancy = nn.Parameter(redundancy, requires_grad=True)
+        else:
+            self.redundancy = None
         self.kernel_height = kernel_height
         self.kernel_width = kernel_width
         self.c_out = c_out
@@ -59,9 +62,9 @@ class CompressedConv2d(AbstractCompressedLayer):
 
     def _get_uncompressed_weight(self, code_book=None):
         if code_book is None:
-            decoded_weights = decode(self.codes_matrix, self.codebook, self.redundancy, self.c_out).float()
+            decoded_weights = decode(self.codes_matrix, self.codebook, self.c_out, self.redundancy).float()
         else:
-            decoded_weights = decode(self.codes_matrix, code_book[self.name_of_codebook], self.redundancy, self.c_out)
+            decoded_weights = decode(self.codes_matrix, code_book[self.name_of_codebook], self.c_out, self.redundancy)
         c_out = decoded_weights.size(0)
         return decoded_weights.reshape(c_out, -1, self.kernel_height, self.kernel_width)
 
