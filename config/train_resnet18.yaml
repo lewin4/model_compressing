@@ -22,12 +22,12 @@ lr_scheduler:
   min_lr: 1.e-6
 
 skip_initial_validation: True
-output_path: ../output/0.8-5multi
+output_path: ../output/
 use_cuda: False
 # model architecture
 model:
-  arch: custom
-  model_path: E:\LY\network-slimming\newhao\0.8model_best.pth.tar
+  arch: resnet18
+  model_path: D:\Code\network-slimming\newhao\0.8pruned.pth.tar
   resume:
 #  state_dict_compressed: E:\LY\model_compressing\single\trained_models\best.pth
 
@@ -45,7 +45,7 @@ model:
     # Small or large block compression regime for convolutional layers
     large_subvectors: False
     k_means_type: src # kmeans, kmedians, src, slow_src
-    k_means_n_iters: 20
+    k_means_n_iters: 2
 
     # Used to overwrite configs
     layer_specs:

@@ -11,7 +11,7 @@ from typing import Optional
 
 import logging
 import torch
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from ..utils.logging import log_to_summary_writer
 from .AbstractDataHandler import AbstractDataHandler

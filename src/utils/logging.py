@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import yaml
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from ..training.training_types import Summary
 

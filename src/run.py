@@ -24,4 +24,4 @@ from src import train_resnet, train_unet, train_hrnet, evaluate_resnet
 # net = Net()
 
 if __name__ == "__main__":
-    evaluate_resnet.main()
+    train_resnet.main()

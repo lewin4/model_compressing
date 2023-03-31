@@ -88,6 +88,10 @@ def get_uncompressed_model(
         model: Uncompressed network
     """
     if arch == "resnet18":
+        if path is not None:
+            checkpoint = torch.load(path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            cfg = checkpoint.get("cfg", None)
+            kwargs["cfg"] = cfg
         model = get_resnet18(pretrained, **kwargs)
     elif arch == "resnet34":
         model = get_resnet34(pretrained, **kwargs)
