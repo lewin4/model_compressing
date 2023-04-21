@@ -1,0 +1,176 @@
+dataloader:
+  dataset: PM
+  num_classes: 2
+#  imagenet_path: <your_imagenet_path_here>
+#  imagenet_path: D:\Code\data\cifar-100
+  imagenet_path: E:\LY\data\classification_aug
+  num_workers: 2
+  batch_size: 32
+  test_batch_size: 8
+  image_shape: [192, 256]
+  train_shuffle: True
+  validation_shuffle: False
+
+# training hyperparams
+epochs: 160
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 0.0001 # 1e-4
+
+optimizer: SGD # must be either sgd or adam
+
+# lr scheduling
+lr_scheduler:
+  type: multistep
+  min_lr: 0
+  factor: 0.1
+  milestones: [80, 120]
+
+skip_initial_validation: True
+output_path: ../resnet34_PM_output/0.8_2multi
+use_cuda: False
+# model architecture
+model:
+  arch: resnet34
+  model_path: E:\LY\network-slimming\logs\resnet34_PM_output\refine\04-21-09h25m_0.94_0.8\model_best.pth.tar
+  resume:
+#  state_dict_compressed: E:\LY\model_compressing\single\trained_models\best.pth
+
+  compression_parameters:
+    ignored_modules:
+      # list of layer names that you do not want to compress.
+      # We follow Stock et al. "And the bit goes down: revisiting the quantization of deep neural networks", ICLR 2020
+      # and do not compress the first 7x7 convolutional layer, as it represents only 0.1-0.05% of the network weights
+      - conv1
+      - fc
+
+    k: 256
+    fc_subvector_size: 4 # d_fc
+    pw_subvector_size: 4 # d_pw
+    # Small or large block compression regime for convolutional layers
+    large_subvectors: False
+    k_means_type: src # kmeans, kmedians, src, slow_src
+    k_means_n_iters: 2
+
+    # Used to overwrite configs
+    layer_specs:
+      fc:
+        k: 2048 # Same as BGD
+        k_means_type: src
+    n_multi_layer: 2
+    multi_layer_specs:
+      9:
+        k: 256
+        k_means_type: src
+        k_means_n_iters: 100
+      4:
+        k: 256
+        k_means_type: src
+        k_means_n_iters: 100
+
+  use_permutations: False
+  sls_iterations: 10_000
+
+  permutations:   # parent-children relationships for permutation optimization
+    -
+      - parents: [layer1.0.conv1, layer1.0.bn1]
+      - children: [layer1.0.conv2]
+    -
+      - parents: [layer1.1.conv1, layer1.1.bn1]
+      - children: [layer1.1.conv2]
+    -
+      - parents: [layer2.0.conv1, layer2.0.bn1]
+      - children: [layer2.0.conv2]
+    -
+      - parents: [layer2.1.conv1, layer2.1.bn1]
+      - children: [layer2.1.conv2]
+    -
+      - parents: [layer3.0.conv1, layer3.0.bn1]
+      - children: [layer3.0.conv2]
+    -
+      - parents: [layer3.1.conv1, layer3.1.bn1]
+      - children: [layer3.1.conv2]
+    -
+      - parents: [layer4.0.conv1, layer4.0.bn1]
+      - children: [layer4.0.conv2]
+    -
+      - parents: [layer4.1.conv1, layer4.1.bn1]
+      - children: [layer4.1.conv2]
+    -
+      - parents: [
+          conv1, bn1,
+          layer1.0.conv2, layer1.0.bn2,
+          layer1.1.conv2, layer1.1.bn2,
+        ]
+#      - children: [
+#          layer1.0.conv1,
+#          layer1.1.conv1,
+#          layer2.0.conv1,
+#          layer2.0.downsample.0,
+#        ]
+      - children: [
+        layer2.0.downsample.0,
+        layer1.0.bn0,
+        layer1.0.select,
+        layer1.0.conv1,
+        layer1.1.bn0,
+        layer1.1.select,
+        layer1.1.conv1,
+        layer2.0.bn0,
+        layer2.0.select,
+        layer2.0.conv1,
+      ]
+    -
+      - parents: [
+          layer2.0.downsample.0, layer2.0.downsample.1,
+          layer2.0.conv2, layer2.0.bn2,
+          layer2.1.conv2, layer2.1.bn2,
+        ]
+#      - children: [
+#          layer2.1.conv1,
+#          layer3.0.conv1,
+#          layer3.0.downsample.0,
+#        ]
+      - children: [
+          layer3.0.downsample.0,
+          layer2.1.bn0,
+          layer2.1.select,
+          layer2.1.conv1,
+          layer3.0.bn0,
+          layer3.0.select,
+          layer3.0.conv1,
+        ]
+    -
+      - parents: [
+          layer3.0.downsample.0, layer3.0.downsample.1,
+          layer3.0.conv2, layer3.0.bn2,
+          layer3.1.conv2, layer3.1.bn2,
+        ]
+#      - children: [
+#          layer3.1.conv1,
+#          layer4.0.conv1,
+#          layer4.0.downsample.0,
+#        ]
+      - children: [
+          layer4.0.downsample.0,
+          layer3.1.bn0,
+          layer3.1.select,
+          layer3.1.conv1,
+          layer4.0.bn0,
+          layer4.0.select,
+          layer4.0.conv1,
+        ]
+    -
+      - parents: [
+          layer4.0.downsample.0, layer4.0.downsample.1,
+          layer4.0.conv2, layer4.0.bn2,
+          layer4.1.conv2, layer4.1.bn2,
+        ]
+      - children: [
+          fc,
+          bn2,
+          layer4.1.conv1,
+          layer4.1.bn0,
+          layer4.1.select,
+          select,
+        ]

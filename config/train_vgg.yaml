@@ -1,38 +1,40 @@
 dataloader:
-  dataset: cifar10
-  num_classes: 10
+  dataset: cifar100
+  num_classes: 100
 #  imagenet_path: <your_imagenet_path_here>
-  root: E:\LY\network-slimming\data.cifar10
+  root: E:\LY\network-slimming\data.cifar100
   imagenet_path: E:\LY\data\classification_aug
-  num_workers: 1
-  batch_size: 256
+  num_workers: 2
+  batch_size: 64
   test_batch_size: 256
   image_shape: [32, 32]
   train_shuffle: True
   validation_shuffle: False
 
 # training hyperparams
-epochs: 150
-learning_rate: 0.01
+epochs: 230
+learning_rate: 0.1
 momentum: 0.9
 weight_decay: 0.0001 # 1e-4
 
-optimizer: adam # must be either sgd or adam
+optimizer: sgd # must be either sgd or adam
 
 # lr scheduling
 lr_scheduler:
-  type: cosine
+  type: multistep
   min_lr: 1.e-7
+  factor: 0.1
+  milestones: [80, 120, 160, 200]
 
 skip_initial_validation: False
-output_path: ../vgg_cifar10_output/0.2-2multi
+output_path: ../vgg_cifar100_output/0.4-2multi
 use_cuda: True
 # model architecture
 model:
   arch: vgg19
-  model_path: E:\LY\network-slimming\logs\vgg16_cifar10_output\refine\0.2_0.9015\model_best.pth.tar
+  model_path: E:\LY\network-slimming\logs\vgg_cifar100_output\refine\0.4\model_best.pth.tar
   resume:
-  state_dict_compressed: E:\LY\model_compressing\vgg_cifar10_output\0.2-2multi\trained_models\best.pth
+  state_dict_compressed:
 
   compression_parameters:
     ignored_modules:
@@ -58,11 +60,11 @@ model:
     n_multi_layer: 2
     multi_layer_specs:
       9:
-        k: 256
+        k: 512
         k_means_type: src
         k_means_n_iters: 100
       4:
-        k: 256
+        k: 512
         k_means_type: src
         k_means_n_iters: 100
 

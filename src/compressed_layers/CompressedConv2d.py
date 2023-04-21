@@ -18,6 +18,8 @@ from ..compression.kmeans import kmeans
 from ..compression.kmeans_sr import src
 from .AbstractCompressedLayer import AbstractCompressedLayer
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class CompressedConv2d(AbstractCompressedLayer):
     """Compressed representation of a Conv2d layer"""
@@ -62,7 +64,7 @@ class CompressedConv2d(AbstractCompressedLayer):
 
     def _get_uncompressed_weight(self, code_book=None):
         if code_book is None:
-            decoded_weights = decode(self.codes_matrix, self.codebook, self.c_out, self.redundancy).float()
+            decoded_weights = decode(self.codes_matrix.to(device), self.codebook.to(device), self.c_out, self.redundancy).float()
         else:
             decoded_weights = decode(self.codes_matrix, code_book[self.name_of_codebook], self.c_out, self.redundancy)
         c_out = decoded_weights.size(0)

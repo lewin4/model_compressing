@@ -40,7 +40,7 @@ _MODEL_OUTPUT_PATH_SUFFIX = "trained_models"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def test(model, test_loader):
+def test(model, test_loader, config):
     model.eval().to(DEVICE)
     test_loss = 0
     correct = 0
@@ -56,7 +56,7 @@ def test(model, test_loader):
         true_list = torch.cat((true_list, target.cpu()), 0)
         correct += pred.eq(target.data.view_as(pred)).cpu().sum()  # get target have the same shape of pred
 
-    report = classification_report(true_list, pred_list, labels=range(10), digits=4)
+    report = classification_report(true_list, pred_list, labels=range(config["dataloader"]["num_classes"]), digits=4)
     print(report)
 
     test_loss /= len(test_loader.dataset)
@@ -135,6 +135,30 @@ def main():
             pin_memory=True,
             shuffle=True)
 
+    elif dataloader_config["dataset"] == 'cifar100':
+        train_data_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100(dataloader_config["root"], train=True, download=True,
+                              transform=transforms.Compose([
+                                  transforms.Pad(4),
+                                  transforms.RandomCrop(32),
+                                  # transforms.RandomHorizontalFlip(),
+                                  transforms.ToTensor(),
+                                  transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                              ])),
+            batch_size=dataloader_config["test_batch_size"],
+            shuffle=True,
+            num_workers=dataloader_config["num_workers"],
+            pin_memory=True,)
+        val_data_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR100(dataloader_config["root"], train=False, transform=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            ])),
+            batch_size=dataloader_config["test_batch_size"],
+            num_workers=dataloader_config["num_workers"],
+            pin_memory=True,
+            shuffle=True)
+
     elif dataloader_config["dataset"] == 'sewage':
         train_data_loader, val_data_loader, _ = get_loaders(
             dataloader_config["imagenet_path"],
@@ -197,7 +221,7 @@ def main():
 
     if not config.get("skip_initial_validation", False):
         last_acc = validate_one_epoch(0, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
-        report = test(model, val_data_loader)
+        report = test(model, val_data_loader, config)
         print(report)
         best_acc = last_acc
         best_acc_epoch = 0
@@ -231,7 +255,7 @@ def main():
             save_state_dict_compressed(
                 model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
             )
-            report = test(model, val_data_loader)
+            report = test(model, val_data_loader, config)
             print(report)
             best_acc = last_acc
             best_acc_epoch = epoch

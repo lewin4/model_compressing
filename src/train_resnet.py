@@ -13,9 +13,12 @@ import math
 import os
 from datetime import datetime
 import torch
+from torch.utils.data import DataLoader
+from torchvision import transforms
 
 from .compression.model_compression import compress_model
 from .dataloading.FI_loader import get_loaders
+from .dataloading.PM_dataset import PM_dataset
 from .permutation.model_permutation import permute_model
 from .training.imagenet_utils import ImagenetTrainer, ImagenetValidator, get_imagenet_criterion
 from .training.lr_scheduler import get_learning_rate_scheduler
@@ -52,7 +55,7 @@ def main():
 
     # specify config file to use in case user does not pass in a --config argument
     file_path = os.path.dirname(__file__)
-    default_config = os.path.join(file_path, "../config/train_resnet18.yaml")
+    default_config = os.path.join(file_path, "../config/train_resnet34.yaml")
     config = load_config(file_path, default_config_path=default_config)
     # summary_writer = None
     if (HAVE_HOROVOD and hvd.rank == 0) or (not HAVE_HOROVOD):
@@ -62,10 +65,12 @@ def main():
     # Get the model, optimize its permutations, and compress it
     model_config = config["model"]
     compression_config = model_config["compression_parameters"]
+    dataloader_config = config["dataloader"]
+
     model = get_uncompressed_model(model_config["arch"],
                                    pretrained=False,
                                    path=model_config["model_path"],
-                                   num_classes=6).to(DEVICE)
+                                   num_classes=dataloader_config["num_classes"]).to(DEVICE)
     # 从网站上下载别人提供的预训练模型
     # C:\Users\LiuYan\.cache\torch\hub\checkpoints，下载到这个位置了
 
@@ -90,7 +95,7 @@ def main():
         hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 
     # Create training and validation dataloaders
-    dataloader_config = config["dataloader"]
+
     # val_data_sampler, val_data_loader = load_imagenet_val(
     #     dataloader_config["imagenet_path"],
     #     dataloader_config["num_workers"],
@@ -103,10 +108,56 @@ def main():
     #     dataloader_config["batch_size"],
     #     shuffle=dataloader_config["train_shuffle"],
     # )
-    train_data_loader, val_data_loader, _ = get_loaders(dataloader_config["imagenet_path"],
-                                                        dataloader_config["batch_size"],
-                                                        dataloader_config["image_shape"],
-                                                        num_workers=dataloader_config["num_workers"])
+    if dataloader_config["dataset"] == "sewage":
+        train_data_loader, val_data_loader, _ = get_loaders(dataloader_config["imagenet_path"],
+                                                            dataloader_config["batch_size"],
+                                                            dataloader_config["image_shape"],
+                                                            num_workers=dataloader_config["num_workers"])
+    elif dataloader_config["dataset"] == "PM":
+        kwargs = kwargs = {'num_workers': dataloader_config["num_workers"], 'pin_memory': True}
+        train_dataset = PM_dataset(
+            r"E:\LY\network-slimming\PM\PALM-Training400",
+            r"E:\LY\network-slimming\PM\PALM-Validation400",
+            train=True,
+            transform=transforms.Compose([
+                # transforms.Resize((1024, 1024)),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomVerticalFlip(),
+                transforms.RandomResizedCrop(size=(224, 224), scale=(0.2, 1.0), ratio=(1.0, 1.0)),
+                # transforms.RandomCrop(32),
+                transforms.RandomGrayscale(),
+                transforms.RandomRotation(degrees=30),
+                # transforms.RandomAutocontrast(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            ]),
+        )
+        train_data_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=dataloader_config["batch_size"],
+            shuffle=True,
+            **kwargs,
+        )
+        test_dataset = PM_dataset(
+            r"E:\LY\network-slimming\PM\PALM-Training400",
+            r"E:\LY\network-slimming\PM\PALM-Validation400",
+            train=False,
+            transform=transforms.Compose([
+                transforms.Resize((1024, 1024)),
+                # transforms.RandomCrop(32),
+                # transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            ]),
+        )
+        val_data_loader = DataLoader(
+            dataset=test_dataset,
+            batch_size=dataloader_config["test_batch_size"],
+            shuffle=True,
+            **kwargs,
+        )
+    else:
+        raise ValueError("No valid dataset is given.")
 
     # Get imagenet optimizer, criterion, trainer and validator
     optimizer = get_optimizer(model, config)
@@ -143,7 +194,6 @@ def main():
         train_one_epoch(epoch, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
 
         last_acc = validate_one_epoch(epoch, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
-
 
         # Save the current state of the model after every epoch
         state = {"model": model.state_dict(),

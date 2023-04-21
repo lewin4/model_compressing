@@ -131,16 +131,17 @@ def main():
         raise ValueError("No valid dataset is given.")
 
     def test_fps(start_epoch, epochs):
-        total_times = 0
         model.eval()
+        total_times = 0
+        model.cpu()
         print("{} epochs will be test.".format(epochs - start_epoch))
         for epoch in range(start_epoch, epochs):
             print("{} epoch start......".format(epoch))
             times = 0
             epoch_time = time.time()
             for data, target in train_data_loader:
-                if config["use_cuda"]:
-                    data, target = data.cuda(), target.cuda()
+                # if config["use_cuda"]:
+                data, target = data.cpu(), target.cpu()
                 start_time = time.time()
                 with torch.no_grad():
                     output = model(data)
@@ -178,8 +179,8 @@ def main():
             100. * correct / len(val_dataset)))
         return report
 
-    test(0)
-    # test_fps(0, 120)
+    # test(0)
+    test_fps(0, 150)
     # validator = ImagenetValidator(model, get_imagenet_criterion())
     # logger = ValidationLogger(1, None)
     # validate_one_epoch(0, val_data_loader, model, validator, logger, verbose)

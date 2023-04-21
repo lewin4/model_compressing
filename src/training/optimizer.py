@@ -28,11 +28,11 @@ def get_optimizer(model: torch.nn.Module, config: Dict) -> torch.optim.Optimizer
 
     learning_rate = get_distributed_learning_rate(learning_rate)
 
-    if optimizer_type == "sgd":
+    if optimizer_type in ["sgd", "SGD"]:
         optimizer = torch.optim.SGD(
             model.parameters(), lr=learning_rate, momentum=config["momentum"], weight_decay=config["weight_decay"]
         )
-    elif optimizer_type == "adam":
+    elif optimizer_type in ["adam", "ADAM"]:
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     else:
         raise ValueError(f"Optimizer must be either `sgd` or `adam`, not {optimizer_type}")

@@ -227,8 +227,8 @@ class ImagenetValidator(ModelValidator):
 
         # inputs = data[0].cuda(non_blocking=True)
         # targets = data[1].cuda(non_blocking=True)
-        inputs = data[0].to(device,non_blocking=True)
-        targets = data[1].long().to(device,non_blocking=True)
+        inputs = data[0].to(device, non_blocking=True)
+        targets = data[1].long().squeeze().to(device, non_blocking=True)
         with torch.no_grad():
             outputs = self._model(inputs)
             loss = self._criterion(outputs, targets)
