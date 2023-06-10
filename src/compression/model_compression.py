@@ -306,6 +306,7 @@ def compress_model(
                 c_out, c_in = layer.weight.shape
             reshaped_weight = get_reshapeed_weight(layer, large_subvectors, pw_subvector_size, fc_subvector_size)
             reshaped_layers_weight[name] = (reshaped_weight, id_in_parent, parent, c_out, c_in, layer)
+            print()
         # del layer_list
         group_codebook_and_codes = get_code_and_codebook(reshaped_layers_weight, multi_layer_specs, n_multi_layer)
         codebook = group_codebook_and_codes["codebook"]

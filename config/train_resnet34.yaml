@@ -1,12 +1,13 @@
 dataloader:
-  dataset: PM
-  num_classes: 2
+  dataset: cifar10
+  num_classes: 10
 #  imagenet_path: <your_imagenet_path_here>
 #  imagenet_path: D:\Code\data\cifar-100
   imagenet_path: E:\LY\data\classification_aug
+  root: E:\LY\network-slimming\data.cifar100
   num_workers: 2
-  batch_size: 32
-  test_batch_size: 8
+  batch_size: 64
+  test_batch_size: 128
   image_shape: [192, 256]
   train_shuffle: True
   validation_shuffle: False
@@ -27,12 +28,12 @@ lr_scheduler:
   milestones: [80, 120]
 
 skip_initial_validation: True
-output_path: ../resnet34_PM_output/0.8_2multi
-use_cuda: False
+output_path: ../resnet34_cifar10_output/ori_1multi
+use_cuda: True
 # model architecture
 model:
   arch: resnet34
-  model_path: E:\LY\network-slimming\logs\resnet34_PM_output\refine\04-21-09h25m_0.94_0.8\model_best.pth.tar
+  model_path: E:\LY\network-slimming\logs\resnet34_cifar10_output\04-23-17h40m_0.8684\model_best.pth.tar
   resume:
 #  state_dict_compressed: E:\LY\model_compressing\single\trained_models\best.pth
 
@@ -57,7 +58,7 @@ model:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 2
+    n_multi_layer: 1
     multi_layer_specs:
       9:
         k: 256

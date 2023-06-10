@@ -14,7 +14,9 @@ import os
 from datetime import datetime
 import torch
 from torch.utils.data import DataLoader
-from torchvision import transforms
+from torchvision import transforms, datasets
+from sklearn.metrics import classification_report
+import torch.nn.functional as F
 
 from .compression.model_compression import compress_model
 from .dataloading.FI_loader import get_loaders
@@ -45,6 +47,31 @@ _MODEL_OUTPUT_PATH_SUFFIX = "trained_models"
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def test(model, test_loader, config):
+    model.eval().to(DEVICE)
+    test_loss = 0
+    correct = 0
+    pred_list = torch.Tensor()
+    true_list = torch.Tensor()
+    for data, target in test_loader:
+        data, target = data.to(DEVICE), target.long().squeeze().to(DEVICE)
+        with torch.no_grad():
+            output = model(data)
+            test_loss += F.cross_entropy(output, target, size_average=False).item()  # sum up batch loss
+        pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
+        pred_list = torch.cat((pred_list, pred.squeeze().cpu()), 0)
+        true_list = torch.cat((true_list, target.cpu()), 0)
+        correct += pred.eq(target.data.view_as(pred)).cpu().sum()  # get target have the same shape of pred
+
+    report = classification_report(true_list, pred_list, labels=range(config["dataloader"]["num_classes"]), digits=4)
+    print(report)
+
+    test_loss /= len(test_loader.dataset)
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'.format(
+        test_loss, correct, len(test_loader.dataset),
+        100. * correct / len(test_loader.dataset)))
+    return report
 
 
 def main():
@@ -113,6 +140,31 @@ def main():
                                                             dataloader_config["batch_size"],
                                                             dataloader_config["image_shape"],
                                                             num_workers=dataloader_config["num_workers"])
+
+    if dataloader_config["dataset"] == 'cifar10':
+        train_data_loader = DataLoader(
+            datasets.CIFAR10(dataloader_config["root"], train=True, download=True,
+                             transform=transforms.Compose([
+                                 transforms.Pad(4),
+                                 transforms.RandomCrop(32),
+                                 transforms.RandomHorizontalFlip(),
+                                 transforms.ToTensor(),
+                                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                             ])),
+            batch_size=dataloader_config["batch_size"],
+            num_workers=dataloader_config["num_workers"],
+            pin_memory=True,
+            shuffle=True)
+        val_data_loader = DataLoader(
+            datasets.CIFAR10(dataloader_config["root"], train=False, transform=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+            ])),
+            batch_size=dataloader_config["test_batch_size"],
+            num_workers=dataloader_config["num_workers"],
+            pin_memory=True,
+            shuffle=True)
+
     elif dataloader_config["dataset"] == "PM":
         kwargs = kwargs = {'num_workers': dataloader_config["num_workers"], 'pin_memory': True}
         train_dataset = PM_dataset(
@@ -190,6 +242,7 @@ def main():
     save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
 
     training_start_timestamp = datetime.now()
+    report = None
     for epoch in range(1, n_epochs + 1):
         train_one_epoch(epoch, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
 
@@ -210,6 +263,8 @@ def main():
             save_state_dict_compressed(
                 model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
             )
+            report = test(model, val_data_loader, config)
+            print(report)
             best_acc = last_acc
             best_acc_epoch = epoch
 
@@ -224,6 +279,7 @@ def main():
             print(last_acc, file=f)
             print(best_acc, file=f)
             print(best_acc_epoch, file=f)
+            print(report, file=f)
 
 
 if __name__ == "__main__":

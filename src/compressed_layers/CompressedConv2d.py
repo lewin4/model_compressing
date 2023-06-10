@@ -18,7 +18,8 @@ from ..compression.kmeans import kmeans
 from ..compression.kmeans_sr import src
 from .AbstractCompressedLayer import AbstractCompressedLayer
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 
 class CompressedConv2d(AbstractCompressedLayer):

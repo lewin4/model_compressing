@@ -201,76 +201,111 @@ def main():
     else:
         raise ValueError("No valid dataset is given.")
 
-    # Get imagenet optimizer, criterion, trainer and validator
-    optimizer = get_optimizer(model, config)
-    criterion = get_imagenet_criterion()
-    n_epochs = config["epochs"]
-    assert n_epochs > 0
-    n_batch_size = len(train_data_loader)
-    lr_scheduler = get_learning_rate_scheduler(config, optimizer, n_epochs, n_batch_size)
+    def test_fps(start_epoch, epochs):
+        import time
+        model.eval()
+        model.cpu()
+        from thop import profile, clever_format
+        input = torch.randn(1, 3, 32, 32)
+        macs, params = profile(model, inputs=(input,))
+        macs, params = clever_format([macs, params], "%.3f")
+        print(macs)
+        print("=" * 40)
+        print(params)
+        total_times = 0
+        print("{} epochs will be test.".format(epochs - start_epoch))
+        model.cpu()
+        for epoch in range(start_epoch, epochs):
+            print("{} epoch start......".format(epoch))
+            times = 0
+            epoch_time = time.time()
+            for data, target in val_data_loader:
+                # data, target = data.to(DEVICE), target.to(DEVICE)
+                start_time = time.time()
+                with torch.no_grad():
+                    output = model(data)
+                stop_time = time.time()
+                times += (stop_time - start_time)
+            total_times += times
+            print("{} epoch finish. time: {}. Pure inference time: {}".format(epoch, time.time() - epoch_time, times))
+        num = len(val_data_loader.dataset) * (epochs - start_epoch)
+        print(
+            "\nAll time: {}, \nImage num: {}, \nTime per image: {}".format(total_times, num, total_times / float(num)))
 
-    trainer = ImagenetTrainer(model, optimizer, lr_scheduler, criterion)
-    training_logger = TrainingLogger(summary_writer)
-    validator = ImagenetValidator(model, criterion)
-    validation_logger = ValidationLogger(n_batch_size, summary_writer)
+    test_fps(0, 160)
 
-    # Keep track of the best validation accuracy we have seen to save the best model at the end of every epoch
-    best_acc = -math.inf            #负无穷大
-    best_acc_epoch = -1
-    last_acc = -math.inf
-
-    if not config.get("skip_initial_validation", False):
-        last_acc = validate_one_epoch(0, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
-        report = test(model, val_data_loader, config)
-        print(report)
-        best_acc = last_acc
-        best_acc_epoch = 0
-
-    if model_config["resume"] is not None:
-        state = torch.load(model_config["resume"])
-        model.load_state_dict(state["model"])
-        optimizer.load_state_dict(state["optimizer"])
-
-    save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
-
-    training_start_timestamp = datetime.now()
-    for epoch in range(1, n_epochs + 1):
-        train_one_epoch(epoch, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
-
-        last_acc = validate_one_epoch(epoch, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
-
-
-        # Save the current state of the model after every epoch
-        state = {"model": model.state_dict(),
-                 "optimizer": optimizer.state_dict()}
-        torch.save(state, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "checkpoint.pth"))
-        # save_state_dict_compressed(
-        #     model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "model.pth")
-        # )
-        if lr_scheduler.step_epoch():
-            # last_acc is between 0 and 100. We need between 0 and 1
-            lr_scheduler.step(last_acc / 100)
-
-        if last_acc >= best_acc:
-            save_state_dict_compressed(
-                model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
-            )
-            report = test(model, val_data_loader, config)
-            print(report)
-            best_acc = last_acc
-            best_acc_epoch = epoch
-
-    # Done training!
-    if verbose:
-        logging.info("Done training!")
-        summary_writer.close()
-        with open(os.path.join(config["output_path"], "results.txt"), "w") as f:
-            print(f"{start_timestamp:%Y-%m-%d %H:%M:%S}", file=f)
-            print(f"{training_start_timestamp:%Y-%m-%d %H:%M:%S}", file=f)
-            print(f"{datetime.now():%Y-%m-%d %H:%M:%S}", file=f)
-            print(last_acc, file=f)
-            print(best_acc, file=f)
-            print(best_acc_epoch, file=f)
+    # # Get imagenet optimizer, criterion, trainer and validator
+    # optimizer = get_optimizer(model, config)
+    # criterion = get_imagenet_criterion()
+    # n_epochs = config["epochs"]
+    # assert n_epochs > 0
+    # n_batch_size = len(train_data_loader)
+    # lr_scheduler = get_learning_rate_scheduler(config, optimizer, n_epochs, n_batch_size)
+    #
+    # trainer = ImagenetTrainer(model, optimizer, lr_scheduler, criterion)
+    # training_logger = TrainingLogger(summary_writer)
+    # validator = ImagenetValidator(model, criterion)
+    # validation_logger = ValidationLogger(n_batch_size, summary_writer)
+    #
+    # # Keep track of the best validation accuracy we have seen to save the best model at the end of every epoch
+    # best_acc = -math.inf            #负无穷大
+    # best_acc_epoch = -1
+    # last_acc = -math.inf
+    #
+    # if not config.get("skip_initial_validation", False):
+    #     last_acc = validate_one_epoch(0, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
+    #     report = test(model, val_data_loader, config)
+    #     print(report)
+    #     best_acc = last_acc
+    #     best_acc_epoch = 0
+    #
+    # if model_config["resume"] is not None:
+    #     state = torch.load(model_config["resume"])
+    #     model.load_state_dict(state["model"])
+    #     optimizer.load_state_dict(state["optimizer"])
+    #
+    # save_state_dict_compressed(model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "0.pth"))
+    #
+    # report = None
+    # training_start_timestamp = datetime.now()
+    # for epoch in range(1, n_epochs + 1):
+    #     train_one_epoch(epoch, train_data_loader, model, trainer, training_logger, verbose, DEVICE)
+    #
+    #     last_acc = validate_one_epoch(epoch, val_data_loader, model, validator, validation_logger, verbose, DEVICE)
+    #
+    #
+    #     # Save the current state of the model after every epoch
+    #     state = {"model": model.state_dict(),
+    #              "optimizer": optimizer.state_dict()}
+    #     torch.save(state, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "checkpoint.pth"))
+    #     # save_state_dict_compressed(
+    #     #     model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "model.pth")
+    #     # )
+    #     if lr_scheduler.step_epoch():
+    #         # last_acc is between 0 and 100. We need between 0 and 1
+    #         lr_scheduler.step(last_acc / 100)
+    #
+    #     if last_acc >= best_acc:
+    #         save_state_dict_compressed(
+    #             model, os.path.join(config["output_path"], _MODEL_OUTPUT_PATH_SUFFIX, "best.pth")
+    #         )
+    #         report = test(model, val_data_loader, config)
+    #         print(report)
+    #         best_acc = last_acc
+    #         best_acc_epoch = epoch
+    #
+    # # Done training!
+    # if verbose:
+    #     logging.info("Done training!")
+    #     summary_writer.close()
+    #     with open(os.path.join(config["output_path"], "results.txt"), "w") as f:
+    #         print(f"{start_timestamp:%Y-%m-%d %H:%M:%S}", file=f)
+    #         print(f"{training_start_timestamp:%Y-%m-%d %H:%M:%S}", file=f)
+    #         print(f"{datetime.now():%Y-%m-%d %H:%M:%S}", file=f)
+    #         print(last_acc, file=f)
+    #         print(best_acc, file=f)
+    #         print(best_acc_epoch, file=f)
+    #         print(report, file=f)
 
 
 if __name__ == "__main__":

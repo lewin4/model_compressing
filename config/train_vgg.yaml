@@ -1,12 +1,12 @@
 dataloader:
-  dataset: cifar100
-  num_classes: 100
+  dataset: cifar10
+  num_classes: 10
 #  imagenet_path: <your_imagenet_path_here>
-  root: E:\LY\network-slimming\data.cifar100
+  root: E:\LY\network-slimming\data.cifar10
   imagenet_path: E:\LY\data\classification_aug
   num_workers: 2
   batch_size: 64
-  test_batch_size: 256
+  test_batch_size: 128
   image_shape: [32, 32]
   train_shuffle: True
   validation_shuffle: False
@@ -21,18 +21,18 @@ optimizer: sgd # must be either sgd or adam
 
 # lr scheduling
 lr_scheduler:
-  type: multistep
+  type: cosine
   min_lr: 1.e-7
   factor: 0.1
   milestones: [80, 120, 160, 200]
 
 skip_initial_validation: False
-output_path: ../vgg_cifar100_output/0.4-2multi
+output_path: ../vgg_cifar10_output/ori-1multi
 use_cuda: True
 # model architecture
 model:
   arch: vgg19
-  model_path: E:\LY\network-slimming\logs\vgg_cifar100_output\refine\0.4\model_best.pth.tar
+  model_path: E:\LY\network-slimming\logs\vgg16_cifar10_output\稀疏化训练\model_best.pth.tar
   resume:
   state_dict_compressed:
 
@@ -44,27 +44,27 @@ model:
       - feature.0
       - classifier
 
-    k: 256
-    fc_subvector_size: 4 # d_fc
-    pw_subvector_size: 4 # d_pw
+    k: 1024
+    fc_subvector_size: 8 # d_fc
+    pw_subvector_size: 8 # d_pw
     # Small or large block compression regime for convolutional layers
     large_subvectors: False
     k_means_type: src # kmeans, kmedians, src, slow_src
-    k_means_n_iters: 20
+    k_means_n_iters: 100
 
     # Used to overwrite configs
     layer_specs:
       fc:
         k: 2048 # Same as BGD
         k_means_type: src
-    n_multi_layer: 2
+    n_multi_layer: 1
     multi_layer_specs:
       9:
-        k: 512
+        k: 1024
         k_means_type: src
         k_means_n_iters: 100
       4:
-        k: 512
+        k: 1024
         k_means_type: src
         k_means_n_iters: 100
 
